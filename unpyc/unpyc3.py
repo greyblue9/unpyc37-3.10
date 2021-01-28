@@ -960,6 +960,48 @@ class PySubscript(PyBinaryOp):
     def wrap_right(self):
         return str(self.right)
 
+class PyInOp(PyBinaryOp, PyExpr):
+    precedence = 15
+    pattern = "{item}{_not} in {seq}"
+    
+    def __init__(self, left, right, negate):
+        super(PyInOp, self).__init__(left, right)
+        self.negate = negate
+
+    def wrap_left(self):
+        return self.left.wrap(self.left.precedence < self.precedence)
+
+    def wrap_right(self):
+        return self.right.wrap(self.right.precedence <= self.precedence)
+
+    def __str__(self):
+        return self.pattern.format(
+          item=self.wrap_left(),
+          seq=self.wrap_right(),
+          _not=(" not" if self.negate else "")
+        )
+
+class PyIsOp(PyBinaryOp, PyExpr):
+    precedence = 15
+    pattern = "{} is {}{}"
+    
+    def __init__(self, left, right, negate):
+        super(PyIsOp, self).__init__(left, right)
+        self.negate = negate
+
+    def wrap_left(self):
+        return self.left.wrap(self.left.precedence < self.precedence)
+
+    def wrap_right(self):
+        return self.right.wrap(self.right.precedence <= self.precedence)
+
+    def __str__(self):
+        return self.pattern.format(
+          self.wrap_left(), "not " if self.negate else "", self.wrap_right()
+        )
+
+
+
 
 class PySlice(PyExpr):
     precedence = 1
@@ -1703,6 +1745,27 @@ class SuiteDecompiler:
         self.suite: Suite = Suite()
         self.assignment_chain = []
         self.popjump_stack = []
+        
+    def IS_OP(self, addr, oparg):
+       # case TARGET(IS_OP):
+       right = self.stack.pop()
+       left = self.stack.peek() # was TOP()
+       # res: int = (1 if left == right else 0) ^ oparg;
+       # b : bool = True if res else False;
+       self.stack.push(PyIsOp(left, right, oparg))
+       # self.stack.push(b);
+    
+    
+    def CONTAINS_OP(self, addr, oparg):
+           right = self.stack.pop()
+           left = self.stack.pop()
+           pyseq = right;
+           item = left;
+           # res: int = 1 if (left in pyseq) else 0;
+           # if res < 0: raise AssertionError("res < 0: %d" % res)
+           # b: bool = true if (res ^ oparg) else false
+           # self.stack.push(b)
+           self.stack.push(PyInOp(left, right, oparg))
 
     def push_popjump(self, jtruthiness, jaddr, jcond, original_jaddr):
         stack = self.popjump_stack
