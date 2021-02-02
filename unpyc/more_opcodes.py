@@ -154,9 +154,15 @@ jabs_op('POP_JUMP_IF_TRUE', 115)     # ""
 
 name_op('LOAD_GLOBAL', 116)     # Index in name list
 
+def_op('IS_OP', 117)
+def_op('CONTAINS_OP', 118)
+
 jabs_op('CONTINUE_LOOP', 119)   # Target address
 jrel_op('SETUP_LOOP', 120)      # Distance to target address
+
 jrel_op('SETUP_EXCEPT', 121)    # ""
+jabs_op('JUMP_IF_NOT_EXC_MATCH', 121) # replaced in 3.9
+
 jrel_op('SETUP_FINALLY', 122)   # ""
 
 def_op('LOAD_FAST', 124)        # Local variable number
@@ -189,4 +195,10 @@ EXTENDED_ARG = 145
 def_op('SET_ADD', 146)
 def_op('MAP_ADD', 147)
 
-del def_op, name_op, jrel_op, jabs_op
+def_op('LIST_EXTEND', 162)
+def_op('SET_UPDATE', 163)
+def_op('DICT_MERGE', 164)
+def_op('DICT_UPDATE', 165)
+
+
+# del def_op, name_op, jrel_op, jabs_op

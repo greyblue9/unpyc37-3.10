@@ -981,6 +981,27 @@ class PyInOp(PyBinaryOp, PyExpr):
           _not=(" not" if self.negate else "")
         )
 
+class PyExtendOp(PyBinaryOp, PyExpr):
+    precedence = 15
+    pattern = "{seq} {_kind} {item}"
+    
+    def __init__(self, left, right, kind_arg):
+        super(PyExtendOp, self).__init__(left, right)
+        self.kind = kind_arg
+
+    def wrap_left(self):
+        return self.left.wrap(self.left.precedence < self.precedence)
+
+    def wrap_right(self):
+        return self.right.wrap(self.right.precedence <= self.precedence)
+
+    def __str__(self):
+        return self.pattern.format(
+          item=self.wrap_left(),
+          seq=self.wrap_right(),
+          _kind=(" (kind:%d) " % self.kind)
+        )
+
 class PyIsOp(PyBinaryOp, PyExpr):
     precedence = 15
     pattern = "{} is {}{}"
@@ -1766,6 +1787,42 @@ class SuiteDecompiler:
            # b: bool = true if (res ^ oparg) else false
            # self.stack.push(b)
            self.stack.push(PyInOp(left, right, oparg))
+
+    """
+    case TARGET(LIST_EXTEND): {
+      PyObject *iterable = POP();
+      PyObject *list = PEEK(oparg);
+      PyObject *none_val = _PyList_Extend((PyListObject *)list, iterable);
+      if (none_val == NULL) {
+        if (_PyErr_ExceptionMatches(tstate, PyExc_TypeError) &&
+         (Py_TYPE(iterable)->tp_iter == NULL &&!PySequence_Check(iterable)))
+        {
+          _PyErr_Clear(tstate);
+          _PyErr_Format(tstate, PyExc_TypeError,
+          "Value after * must be an iterable, not %.200s",
+          Py_TYPE(iterable)->tp_name);
+        }
+        Py_DECREF(iterable);
+        goto error;
+      }
+    }
+    """
+    def LIST_EXTEND(self, addr, oparg):           
+           right = self.stack.pop()
+           left = self.stack.pop()
+           list_obj = left
+           items = right
+           values = []
+           [values.append(item) for item in list_obj.values]
+           for val in items.val:
+             values.append(val)
+           # raise BaseException(locals())
+           # res: int = 1 if (left in pyseq) else 0;
+           # if res < 0: raise AssertionError("res < 0: %d" % res)
+           # b: bool = true if (res ^ oparg) else false
+           # self.stack.push(b)
+           #self.stack.push(list_obj)
+           self.stack.push(PyConst(values))
 
     def push_popjump(self, jtruthiness, jaddr, jcond, original_jaddr):
         stack = self.popjump_stack
