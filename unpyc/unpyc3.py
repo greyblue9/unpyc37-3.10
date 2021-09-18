@@ -98,6 +98,10 @@ BUILD_TUPLE_UNPACK_WITH_CALL = 158
 BINARY_MATRIX_MULTIPLY = 16
 LOAD_METHOD = 160
 CALL_METHOD = 161
+LIST_EXTEND = 162
+SET_UPDATE = 163
+DICT_MERGE = 164
+DICT_UPDATE = 165
 INPLACE_MATRIX_MULTIPLY = 17
 BINARY_POWER = 19
 ROT_TWO = 2
@@ -168,7 +172,10 @@ INPLACE_XOR = 78
 INPLACE_OR = 79
 BREAK_LOOP = 80
 WITH_CLEANUP = 81
+
+LIST_TO_TUPLE = 82
 LOAD_LOCALS = 82
+
 RETURN_VALUE = 83
 IMPORT_STAR = 84
 EXEC_STMT = 85
@@ -253,6 +260,7 @@ stmt_opcodes = {
     RETURN_VALUE, YIELD_VALUE,
     RAISE_VARARGS,
     POP_TOP,
+    LIST_EXTEND, SET_UPDATE, DICT_MERGE, DICT_UPDATE
 }
 
 # Conditional branching opcode that make up if statements and and/or
@@ -416,6 +424,12 @@ class Stack:
         return val
 
     def pop(self, count=None):
+        from pythonrc import at
+        if not hasattr(self.pop.__func__, "callers"):
+            self.pop.__func__.callers = []
+        import sys, traceback
+        current_caller = list(traceback.walk_stack(at(sys._current_frames(),1)))
+        self.pop.__func__.callers.append((current_caller, locals()))
         if count is None:
             val = self.pop1()
             return val
@@ -434,6 +448,8 @@ class Stack:
             return self._stack[-1]
         else:
             return self._stack[-count:]
+
+
 
 
 def code_walker(code):
@@ -830,13 +846,21 @@ class PyFormatString(PyExpr):
         self.params = params
 
     def __str__(self):
-        return "f'{}'".format(''.join([
-            p.base().replace('\'', '\"') if isinstance(p, PyFormatValue) else
+        # raise BaseException(locals())
+        v = ''.join([
+            p.base().replace('\'', '\"') if isinstance(p, PyFormatValue) \
+            else
             p.name if isinstance(p, PyName) else
+            # str(p.val)
             str(p.val.encode('utf-8'))[1:].replace('\'', '').replace('{','{{').replace('}','}}')
+               if str(bytes(p.val, "utf-8"))[1] == "'" else \
+               str(p.val.encode('utf-8'))[1:].replace('\"', "").replace('{','{{').replace('}','}}')
             for p in self.params])
-        )
-
+        
+        if "\\'" in v:
+          return "f'%s'" % v.replace('\'', '\\\'')
+        else:
+          return 'f"%s"' % v.replace("\"", "\\\"")
 
 class PyTuple(PyExpr):
     precedence = 0
@@ -1312,6 +1336,35 @@ class PyStarred(PyExpr):
     def __str__(self):
         es = self.expr.wrap(self.expr.precedence < self.precedence)
         return "*{}".format(es)
+
+
+
+class PyListExtend(PyBinaryOp):
+    precedence = 15
+    pattern = "({}+{})"
+    def wrap_right(self):
+        return str(self.right)
+
+
+class PySetUpdate(PyBinaryOp):
+    precedence = 15
+    pattern = "{}.update({})"
+    def wrap_right(self):
+        return str(self.right)
+
+
+class PyDictMerge(PyBinaryOp):
+    precedence = 15
+    pattern = "dict(**{},**{})"
+    def wrap_right(self):
+        return str(self.right)
+
+
+class PyDictUpdate(PyBinaryOp):
+    precedence = 15
+    pattern = "{}.update({})"
+    def wrap_right(self):
+        return str(self.right)
 
 
 code_map = {
@@ -1807,22 +1860,32 @@ class SuiteDecompiler:
       }
     }
     """
-    def LIST_EXTEND(self, addr, oparg):           
-           right = self.stack.pop()
-           left = self.stack.pop()
-           list_obj = left
-           items = right
-           values = []
-           [values.append(item) for item in list_obj.values]
-           for val in items.val:
-             values.append(val)
-           # raise BaseException(locals())
-           # res: int = 1 if (left in pyseq) else 0;
-           # if res < 0: raise AssertionError("res < 0: %d" % res)
-           # b: bool = true if (res ^ oparg) else false
-           # self.stack.push(b)
-           #self.stack.push(list_obj)
-           self.stack.push(PyConst(values))
+    def POP(self, *args):
+        return self.stack.pop(*args)
+
+    def PEEK(self, *args):
+       return self.stack.peek(*args)
+
+    def _PyList_Extend(self, list_: PyList, iterable) -> PyList:
+        new_list = [*list_.values]
+        new_list.extend(iterable)
+        return PyList(new_list)
+    
+    def LIST_EXTEND(self, addr, oparg):
+      import sys
+      try:
+        sys.stderr.write(
+            f"{self.__class__.__qualname__}.LIST_EXTEND({addr=}, {oparg=})"
+        )
+        list_ = self.stack._stack[-2]
+        list_.values.extend(self.stack._stack[-1].val)
+        self.stack.pop(2)
+        self.stack.push(PyDict(list_.values))
+      except BaseException as _bex:
+        sys.stderr.write(
+          f"LIST_EXTEND({addr=}, {oparg=}): error: {_bex}"
+        )
+        raise
 
     def push_popjump(self, jtruthiness, jaddr, jcond, original_jaddr):
         stack = self.popjump_stack
@@ -2562,6 +2625,15 @@ class SuiteDecompiler:
         values = [self.stack.pop() for i in range(count)]
         values.reverse()
         self.stack.push(PyTuple(values))
+        
+    def DICT_MERGE(self, addr, count):
+        values = []
+        for o in self.stack.pop(count):
+            if isinstance(o, PyTuple):
+                values.extend(o.values)
+            else:
+                values.append(PyStarred(o))
+        self.stack.push(PyList(values))
 
     def BUILD_TUPLE_UNPACK(self, addr, count):
         values = []
@@ -2655,9 +2727,97 @@ class SuiteDecompiler:
         value, key = self.stack.pop(2)
         self.stack.push(PyKeyValue(key, value))
         self.POP_TOP(addr)
-
+    """
+    def LIST_TO_TUPLE(self, addr):
+      list_obj = self.stack.pop()
+      tuple_obj = PyTuple(list_obj)
+      #self.POP_TOP(addr)
+      self.stack.push(tuple_obj)
+      
+    def LIST_EXTEND(self, addr, oparg):
+      iterable = self.stack.pop()
+      list_obj = self.stack.peek(oparg)
+      none_val = None
+      try:
+       list_obj += [iterable]
+       #self.stack.push(PyList(list_obj))
+      except TypeError as _te:
+        if not hasattr(iterable, "__iter__") and \
+           not hasattr(iterable, "__getitem__"):
+          raise TypeError(
+              "Value after * must be an iterable, not {!s}".format(
+                  type(iterable).__name__))
+        list_obj[0].values + [PyStarred(iterable)]
+      self.stack.push(PyList(list_obj[0].values))
+      #self.POP_TOP(addr)
+      
+    def DICT_UPDATE(self, addr, i, oparg):
+      update = self.stack.pop()
+      dict_obj = self.stack.peek(oparg)[0]
+      if (PyDict_Update(dict_obj, update) < 0):
+        if (_PyErr_ExceptionMatches(AttributeError)):
+          raise TypeError("'{!s}' object_obj is not a mapping".format(
+                  type(update).__name__))
+      #self.POP_TOP(addr)
+      self.stack.push(dict_obj)
+      
+    def DICT_MERGE(self, addr, oparg):
+      other = self.stack.pop()
+      dict_obj = self.stack.peek()
+      if isinstance(other, PyDict):
+        self.print("{}.update({})".format(dict_obj, other))
+        self.stack.push(dict_obj)
+      else:
+        for key, value in dict_obj.items:
+          self.stack.push(PyKeyValue(key, value))
+      self.stack.push(dict_obj)
+      #self.POP_TOP(addr)
     # and operator
+"""
+    def LIST_TO_TUPLE(self, addr):
+        list_value = self.stack.pop()
+        values = list_value.values
+        self.stack.push(PyTuple(values))
+        
+    def LIST_EXTEND(self, addr, i):
+        items = self.stack.pop(1)
+        item2 = self.stack.pop(1)
+        if hasattr(item2[0], "expr"):
+          exprs = [item2[0].expr]
+        else:
+          exprs = item2[0].values
+        new_list = PyList([*exprs, PyStarred(items[0])])
+        self.stack.push(new_list)
+        
+    def SET_UPDATE(self, addr, i, oparg):
+        iterable = self.stack.pop()
+        set_obj = self.stack.peek(oparg)[0]
+        for item in iterable:
+            set_obj.values.add(item)
+            self.stack.push(set_obj)
+            #self.POP_TOP(addr)
+    
+    def SET_UPDATE(self, addr, i):
+        self.POP_TOP(addr)
+        pass #self.POP_TOP(addr)
 
+    def DICT_UPDATE(self, addr, i):
+        items = self.stack.pop(1)
+        self.stack.push(items[0])
+        self.POP_TOP(addr)
+        
+    def DICT_MERGE(self, addr, i):
+        items = self.stack.pop(1)
+        item2 = self.stack.pop(1)
+        new_list = [*item2[0].items] + [items[0]]
+        item = None
+        if len(new_list) == 1:
+          item = new_list[0]
+        else:
+          item = PyList(new_list)
+        self.stack.push(item)
+        
+        
     def JUMP_IF_FALSE_OR_POP(self, addr: Address, target):
         end_addr = addr.jump()
         truthiness = not addr.seek_back_statement(POP_JUMP_IF_TRUE)
@@ -3030,6 +3190,7 @@ class SuiteDecompiler:
         paramobjs = {}
         paramcount = (argc >> 16) & 0x7FFF
         if paramcount:
+            raise BaseException(locals())
             paramobjs = dict(zip(self.stack.pop().val, self.stack.pop(paramcount - 1)))
         # default argument objects in positional order 
         defaults = self.stack.pop(argc & 0xFF)
@@ -3236,3 +3397,4 @@ if __name__ == "__main__":
         print('USAGE: {} <filename.pyc>'.format(sys.argv[0]))
     else:
         print(decompile(sys.argv[1]))
+
