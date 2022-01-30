@@ -424,12 +424,6 @@ class Stack:
         return val
 
     def pop(self, count=None):
-        from pythonrc import at
-        if not hasattr(self.pop.__func__, "callers"):
-            self.pop.__func__.callers = []
-        import sys, traceback
-        current_caller = list(traceback.walk_stack(at(sys._current_frames(),1)))
-        self.pop.__func__.callers.append((current_caller, locals()))
         if count is None:
             val = self.pop1()
             return val
@@ -448,8 +442,6 @@ class Stack:
             return self._stack[-1]
         else:
             return self._stack[-count:]
-
-
 
 
 def code_walker(code):
@@ -846,21 +838,13 @@ class PyFormatString(PyExpr):
         self.params = params
 
     def __str__(self):
-        # raise BaseException(locals())
-        v = ''.join([
-            p.base().replace('\'', '\"') if isinstance(p, PyFormatValue) \
-            else
+        return "f'{}'".format(''.join([
+            p.base().replace('\'', '\"') if isinstance(p, PyFormatValue) else
             p.name if isinstance(p, PyName) else
-            # str(p.val)
             str(p.val.encode('utf-8'))[1:].replace('\'', '').replace('{','{{').replace('}','}}')
-               if str(bytes(p.val, "utf-8"))[1] == "'" else \
-               str(p.val.encode('utf-8'))[1:].replace('\"', "").replace('{','{{').replace('}','}}')
             for p in self.params])
-        
-        if "\\'" in v:
-          return "f'%s'" % v.replace('\'', '\\\'')
-        else:
-          return 'f"%s"' % v.replace("\"", "\\\"")
+        )
+
 
 class PyTuple(PyExpr):
     precedence = 0
@@ -1002,28 +986,7 @@ class PyInOp(PyBinaryOp, PyExpr):
         return self.pattern.format(
           item=self.wrap_left(),
           seq=self.wrap_right(),
-          _not=(" not" if self.negate else "")
-        )
-
-class PyExtendOp(PyBinaryOp, PyExpr):
-    precedence = 15
-    pattern = "{seq} {_kind} {item}"
-    
-    def __init__(self, left, right, kind_arg):
-        super(PyExtendOp, self).__init__(left, right)
-        self.kind = kind_arg
-
-    def wrap_left(self):
-        return self.left.wrap(self.left.precedence < self.precedence)
-
-    def wrap_right(self):
-        return self.right.wrap(self.right.precedence <= self.precedence)
-
-    def __str__(self):
-        return self.pattern.format(
-          item=self.wrap_left(),
-          seq=self.wrap_right(),
-          _kind=(" (kind:%d) " % self.kind)
+          _not = "not " if self.negate else ""
         )
 
 class PyIsOp(PyBinaryOp, PyExpr):
@@ -1841,52 +1804,6 @@ class SuiteDecompiler:
            # self.stack.push(b)
            self.stack.push(PyInOp(left, right, oparg))
 
-    """
-    case TARGET(LIST_EXTEND): {
-      PyObject *iterable = POP();
-      PyObject *list = PEEK(oparg);
-      PyObject *none_val = _PyList_Extend((PyListObject *)list, iterable);
-      if (none_val == NULL) {
-        if (_PyErr_ExceptionMatches(tstate, PyExc_TypeError) &&
-         (Py_TYPE(iterable)->tp_iter == NULL &&!PySequence_Check(iterable)))
-        {
-          _PyErr_Clear(tstate);
-          _PyErr_Format(tstate, PyExc_TypeError,
-          "Value after * must be an iterable, not %.200s",
-          Py_TYPE(iterable)->tp_name);
-        }
-        Py_DECREF(iterable);
-        goto error;
-      }
-    }
-    """
-    def POP(self, *args):
-        return self.stack.pop(*args)
-
-    def PEEK(self, *args):
-       return self.stack.peek(*args)
-
-    def _PyList_Extend(self, list_: PyList, iterable) -> PyList:
-        new_list = [*list_.values]
-        new_list.extend(iterable)
-        return PyList(new_list)
-    
-    def LIST_EXTEND(self, addr, oparg):
-      import sys
-      try:
-        sys.stderr.write(
-            f"{self.__class__.__qualname__}.LIST_EXTEND({addr=}, {oparg=})"
-        )
-        list_ = self.stack._stack[-2]
-        list_.values.extend(self.stack._stack[-1].val)
-        self.stack.pop(2)
-        self.stack.push(PyDict(list_.values))
-      except BaseException as _bex:
-        sys.stderr.write(
-          f"LIST_EXTEND({addr=}, {oparg=}): error: {_bex}"
-        )
-        raise
-
     def push_popjump(self, jtruthiness, jaddr, jcond, original_jaddr):
         stack = self.popjump_stack
         if jaddr and jaddr[-1].is_else_jump:
@@ -2181,10 +2098,51 @@ class SuiteDecompiler:
             assert end_with.opcode == WITH_CLEANUP
             assert end_with[1].opcode == END_FINALLY
             return end_with[2]
-        else:
+        elif end_with.opcode == WITH_CLEANUP_START:
             assert end_with.opcode == WITH_CLEANUP_START
             assert end_with[1].opcode == WITH_CLEANUP_FINISH
             return end_with[3]
+        elif end_with.opcode == WITH_EXCEPT_START:
+            """
+        TARGET(WITH_EXCEPT_START) {
+            /* At the top of the stack are 4 values:
+               - TOP = exc_info()
+               - SECOND = previous exception
+               - THIRD: lasti of exception in exc_info()
+               - FOURTH: the context.__exit__ bound method
+               We call FOURTH(type(TOP), TOP, GetTraceback(TOP)).
+               Then we push the __exit__ return value.
+            */
+            PyObject *exit_func;
+            PyObject *exc, *val, *tb, *res;
+            val = TOP();
+            assert(val && PyExceptionInstance_Check(val));
+            exc = PyExceptionInstance_Class(val);
+            tb = PyException_GetTraceback(val);
+            Py_XDECREF(tb);
+            assert(PyLong_Check(PEEK(3)));
+            exit_func = PEEK(4);
+            PyObject *stack[4] = {NULL, exc, val, tb};
+            res = PyObject_Vectorcall(exit_func, stack + 1,
+                    3 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
+        }
+            """
+            start_index = [idx for idx, (a, (k,v)) in enumerate(end_with.code.instr_seq) if a == end_with[0].addr][0]
+            end_index = [idx for idx, (a, (k,v)) in enumerate(end_with.code.instr_seq) if idx > start_index and k == POP_EXCEPT][0]
+            """
+>>      182     WITH_EXCEPT_START
+        184     POP_JUMP_IF_TRUE        188
+        186     RERAISE
+>>      188     POP_TOP
+        190     POP_TOP
+        192     POP_TOP
+        194     POP_EXCEPT
+            """            
+            assert end_with.opcode == WITH_EXCEPT_START
+            assert end_with[end_index - start_index].opcode == POP_EXCEPT
+            return end_with[end_index - start_index]
+        else:
+            raise AssertionError("Unexpectee opcode at start of BEGIN_WITH: end_with.opcode = {}".format(end_with.opcode))
 
     def POP_BLOCK(self, addr):
         pass
@@ -2751,6 +2709,14 @@ class SuiteDecompiler:
       self.stack.push(PyList(list_obj[0].values))
       #self.POP_TOP(addr)
       
+    def SET_UPDATE(self, addr, i, oparg):
+      iterable = self.stack.pop()
+      set_obj = self.stack.peek(oparg)[0]
+      for item in iterable:
+        set_obj.values.add(item)
+      self.stack.push(set_obj)
+      #self.POP_TOP(addr)
+    
     def DICT_UPDATE(self, addr, i, oparg):
       update = self.stack.pop()
       dict_obj = self.stack.peek(oparg)[0]
@@ -2772,13 +2738,13 @@ class SuiteDecompiler:
           self.stack.push(PyKeyValue(key, value))
       self.stack.push(dict_obj)
       #self.POP_TOP(addr)
+
     # and operator
 """
     def LIST_TO_TUPLE(self, addr):
         list_value = self.stack.pop()
         values = list_value.values
         self.stack.push(PyTuple(values))
-        
     def LIST_EXTEND(self, addr, i):
         items = self.stack.pop(1)
         item2 = self.stack.pop(1)
@@ -2789,23 +2755,13 @@ class SuiteDecompiler:
         new_list = PyList([*exprs, PyStarred(items[0])])
         self.stack.push(new_list)
         
-    def SET_UPDATE(self, addr, i, oparg):
-        iterable = self.stack.pop()
-        set_obj = self.stack.peek(oparg)[0]
-        for item in iterable:
-            set_obj.values.add(item)
-            self.stack.push(set_obj)
-            #self.POP_TOP(addr)
-    
     def SET_UPDATE(self, addr, i):
         self.POP_TOP(addr)
         pass #self.POP_TOP(addr)
-
     def DICT_UPDATE(self, addr, i):
         items = self.stack.pop(1)
         self.stack.push(items[0])
         self.POP_TOP(addr)
-        
     def DICT_MERGE(self, addr, i):
         items = self.stack.pop(1)
         item2 = self.stack.pop(1)
@@ -2818,6 +2774,7 @@ class SuiteDecompiler:
         self.stack.push(item)
         
         
+
     def JUMP_IF_FALSE_OR_POP(self, addr: Address, target):
         end_addr = addr.jump()
         truthiness = not addr.seek_back_statement(POP_JUMP_IF_TRUE)
@@ -3190,7 +3147,6 @@ class SuiteDecompiler:
         paramobjs = {}
         paramcount = (argc >> 16) & 0x7FFF
         if paramcount:
-            raise BaseException(locals())
             paramobjs = dict(zip(self.stack.pop().val, self.stack.pop(paramcount - 1)))
         # default argument objects in positional order 
         defaults = self.stack.pop(argc & 0xFF)
@@ -3356,6 +3312,8 @@ class SuiteDecompiler:
         self.suite.add_statement(for_stmt)
         new_end = new_end.seek_forward(POP_BLOCK)
         return new_end
+        
+        
 
 
 def make_dynamic_instr(cls):
@@ -3397,4 +3355,3 @@ if __name__ == "__main__":
         print('USAGE: {} <filename.pyc>'.format(sys.argv[0]))
     else:
         print(decompile(sys.argv[1]))
-

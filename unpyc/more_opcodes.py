@@ -79,6 +79,10 @@ def_op('STORE_SLICE+1', 41)
 def_op('STORE_SLICE+2', 42)
 def_op('STORE_SLICE+3', 43)
 
+def_op('WITH_EXCEPT_START', 49)
+def_op('WITH_CLEANUP_START', 81)
+def_op('WITH_CLEANUP_FINISH', 82)
+
 def_op('DELETE_SLICE+0', 50)
 def_op('DELETE_SLICE+1', 51)
 def_op('DELETE_SLICE+2', 52)
@@ -111,8 +115,16 @@ def_op('INPLACE_AND', 77)
 def_op('INPLACE_XOR', 78)
 def_op('INPLACE_OR', 79)
 def_op('BREAK_LOOP', 80)
+
+def_op('WITH_CLEANUP_START', 81)
 def_op('WITH_CLEANUP', 81)
+
+WITH_CLEANUP_START = 81
+
+def_op('WITH_CLEANUP_FINISH', 82)
 def_op('LOAD_LOCALS', 82)
+WITH_CLEANUP_FINISH = 82
+
 def_op('RETURN_VALUE', 83)
 def_op('IMPORT_STAR', 84)
 def_op('EXEC_STMT', 85)
@@ -154,15 +166,9 @@ jabs_op('POP_JUMP_IF_TRUE', 115)     # ""
 
 name_op('LOAD_GLOBAL', 116)     # Index in name list
 
-def_op('IS_OP', 117)
-def_op('CONTAINS_OP', 118)
-
 jabs_op('CONTINUE_LOOP', 119)   # Target address
 jrel_op('SETUP_LOOP', 120)      # Distance to target address
-
 jrel_op('SETUP_EXCEPT', 121)    # ""
-jabs_op('JUMP_IF_NOT_EXC_MATCH', 121) # replaced in 3.9
-
 jrel_op('SETUP_FINALLY', 122)   # ""
 
 def_op('LOAD_FAST', 124)        # Local variable number
@@ -195,10 +201,4 @@ EXTENDED_ARG = 145
 def_op('SET_ADD', 146)
 def_op('MAP_ADD', 147)
 
-def_op('LIST_EXTEND', 162)
-def_op('SET_UPDATE', 163)
-def_op('DICT_MERGE', 164)
-def_op('DICT_UPDATE', 165)
-
-
-# del def_op, name_op, jrel_op, jabs_op
+del def_op, name_op, jrel_op, jabs_op
