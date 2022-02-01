@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 Decompiler for Python3.7.
 Decompile a module or a function using the decompile() function
