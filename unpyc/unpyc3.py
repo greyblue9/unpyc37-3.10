@@ -29,9 +29,9 @@ import sys
 for opname, code in more_opcodes.opmap.items():
   if not opname.isidentifier():
     continue
-  sys.stderr.write(f'Adding opcode {opname=} -> {code=}\x0a')
+  # sys.stderr.write(f'Adding opcode {opname=} -> {code=}\x0a')
   exec(f'{opname} = {code}')
-  sys.stderr.flush()
+  # sys.stderr.flush()
 
 # __all__ = ['decompile']
 STOP_CODE = 0
@@ -558,7 +558,22 @@ class Code:
             print(addr)
 
     def address(self, addr):
-        return self[self.instr_map[addr]]
+        # print(f"{self}.address({addr=})")
+        if addr in self.instr_map:
+            tgt_addr = self.instr_map[addr]
+            # print(f"{self}.address({addr=}): {tgt_addr=}")
+            ret = self[tgt_addr]
+            # print(f"{self}.address({addr=}): self[{tgt_addr}] -> {ret=}")
+            return ret
+        if addr in self.instr_list:
+            tgt_addr = self.instr_list[addr]
+            # print(f"WARN: using instr_list: {self}.address({addr=}): {tgt_addr=}")
+            ret = self[tgt_addr]
+            # print(f"{self}.address({addr=}): self[{tgt_addr}] -> {ret=}")
+            return ret
+        return self[addr]
+
+
 
     def iscellvar(self, i):
         return i < len(self.code_obj.co_cellvars)
@@ -3313,7 +3328,8 @@ class SuiteDecompiler:
         new_end = new_end.seek_forward(POP_BLOCK)
         return new_end
         
-        
+SuiteDecompiler.RESUME = SuiteDecompiler.__dict__["CONTINUE_LOOP"]
+SuiteDecompiler.CALL_NO_KW = SuiteDecompiler.__dict__["CALL_FUNCTION_VAR"]
 
 
 def make_dynamic_instr(cls):
