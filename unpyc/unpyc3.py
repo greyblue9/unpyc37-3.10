@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """
 Decompiler for Python3.7.
 Decompile a module or a function using the decompile() function
@@ -530,6 +528,7 @@ class Code:
         self.names = list(map(PyName, code_obj.co_names))
         self.varnames = list(map(PyName, code_obj.co_varnames))
         self.instr_seq = list(code_walker(code_obj.co_code))
+        self.instr_list = self.instr_seq
         self.instr_map = {addr: i for i, (addr, _) in enumerate(self.instr_seq)}
         self.name = code_obj.co_name
         self.globals = []
