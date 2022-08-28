@@ -28,12 +28,13 @@ from typing import Union, Iterable, Any, List
 
 from . import more_opcodes
 import sys
+
 for opname, code in more_opcodes.opmap.items():
-  if not opname.isidentifier():
-    continue
-  # sys.stderr.write(f'Adding opcode {opname=} -> {code=}\x0a')
-  exec(f'{opname} = {code}')
-  # sys.stderr.flush()
+    if not opname.isidentifier():
+        continue
+    # sys.stderr.write(f'Adding opcode {opname=} -> {code=}\x0a')
+    exec(f'{opname} = {code}')
+    # sys.stderr.flush()
 
 # __all__ = ['decompile']
 STOP_CODE = 0
@@ -201,6 +202,7 @@ STORE_GLOBAL = 97
 DELETE_GLOBAL = 98
 DUP_TOPX = 99
 
+
 def set_trace(trace_function):
     global current_trace
     current_trace = trace_function if trace_function else _trace
@@ -248,21 +250,35 @@ for name, val in opmap.items():
 # pass (in Code.find_else) to find which POP_JUMP_IF_* instructions
 # are jumps to the else clause of an if statement
 stmt_opcodes = {
-    SETUP_LOOP, BREAK_LOOP, CONTINUE_LOOP,
-    SETUP_FINALLY, END_FINALLY,
-    SETUP_EXCEPT, POP_EXCEPT,
+    SETUP_LOOP,
+    BREAK_LOOP,
+    CONTINUE_LOOP,
+    SETUP_FINALLY,
+    END_FINALLY,
+    SETUP_EXCEPT,
+    POP_EXCEPT,
     SETUP_WITH,
     POP_BLOCK,
-    STORE_FAST, DELETE_FAST,
-    STORE_DEREF, DELETE_DEREF,
-    STORE_GLOBAL, DELETE_GLOBAL,
-    STORE_NAME, DELETE_NAME,
-    STORE_ATTR, DELETE_ATTR,
-    IMPORT_NAME, IMPORT_FROM,
-    RETURN_VALUE, YIELD_VALUE,
+    STORE_FAST,
+    DELETE_FAST,
+    STORE_DEREF,
+    DELETE_DEREF,
+    STORE_GLOBAL,
+    DELETE_GLOBAL,
+    STORE_NAME,
+    DELETE_NAME,
+    STORE_ATTR,
+    DELETE_ATTR,
+    IMPORT_NAME,
+    IMPORT_FROM,
+    RETURN_VALUE,
+    YIELD_VALUE,
     RAISE_VARARGS,
     POP_TOP,
-    LIST_EXTEND, SET_UPDATE, DICT_MERGE, DICT_UPDATE
+    LIST_EXTEND,
+    SET_UPDATE,
+    DICT_MERGE,
+    DICT_UPDATE,
 }
 
 # Conditional branching opcode that make up if statements and and/or
@@ -272,27 +288,31 @@ pop_jump_if_opcodes = (POP_JUMP_IF_TRUE, POP_JUMP_IF_FALSE)
 # These opcodes indicate that a pop_jump_if_x to the address just
 # after them is an else-jump
 else_jump_opcodes = (
-    JUMP_FORWARD, RETURN_VALUE, JUMP_ABSOLUTE,
-    SETUP_LOOP, RAISE_VARARGS, POP_TOP
+    JUMP_FORWARD,
+    RETURN_VALUE,
+    JUMP_ABSOLUTE,
+    SETUP_LOOP,
+    RAISE_VARARGS,
+    POP_TOP,
 )
 
 # These opcodes indicate for loop rather than while loop
-for_jump_opcodes = (
-    GET_ITER, FOR_ITER, GET_ANEXT
-)
+for_jump_opcodes = (GET_ITER, FOR_ITER, GET_ANEXT)
 
 
 def read_code(stream):
-    # This helper is needed in order for the PEP 302 emulation to 
+    # This helper is needed in order for the PEP 302 emulation to
     # correctly handle compiled files
     # Note: stream must be opened in "rb" mode
     import marshal
 
     if sys.version_info < (3, 4):
         import imp
+
         runtime_magic = imp.get_magic()
     else:
         import importlib.util
+
         runtime_magic = importlib.util.MAGIC_NUMBER
 
     magic = stream.read(4)
@@ -317,16 +337,20 @@ def dec_module(path) -> Suite:
     if path.endswith(".py"):
         if sys.version_info < (3, 6):
             import imp
+
             path = imp.cache_from_source(path)
         else:
             import importlib.util
+
             path = importlib.util.cache_from_source(path)
     elif not path.endswith(".pyc") and not path.endswith(".pyo"):
         raise ValueError("path must point to a .py or .pyc file")
     with open(path, "rb") as stream:
         code_obj = read_code(stream)
         code = Code(code_obj)
-        return code.get_suite(include_declarations=False, look_for_docstring=True)
+        return code.get_suite(
+            include_declarations=False, look_for_docstring=True
+        )
 
 
 def decompile(obj) -> Union[Suite, PyStatement]:
@@ -344,7 +368,9 @@ def decompile(obj) -> Union[Suite, PyStatement]:
         code = Code(obj.__code__)
         defaults = obj.__defaults__
         kwdefaults = obj.__kwdefaults__
-        return DefStatement(code, defaults, kwdefaults, obj.__closure__)
+        return DefStatement(
+            code, defaults, kwdefaults, obj.__closure__
+        )
     elif inspect.ismodule(obj):
         return dec_module(obj.__file__)
     else:
@@ -380,7 +406,9 @@ class IndentString(Indent):
             self.lines = lines
 
     def __add__(self, indent_increase):
-        return type(self)(self.level + indent_increase, self.step, self.lines)
+        return type(self)(
+            self.level + indent_increase, self.step, self.lines
+        )
 
     def sep(self):
         if not self.lines or self.lines[-1]:
@@ -460,7 +488,11 @@ def code_walker(code):
             oparg = code[i + offset]
             offset += 1
         elif op >= HAVE_ARGUMENT:
-            oparg = code[i + offset] + code[i + offset + 1] * 256 + extended_arg
+            oparg = (
+                code[i + offset]
+                + code[i + offset + 1] * 256
+                + extended_arg
+            )
             extended_arg = 0
             offset += 2
         if op == EXTENDED_ARG:
@@ -495,6 +527,7 @@ class CodeFlags(object):
     @property
     def varkwargs(self):
         return self.flags & 0x8
+
     @property
     def nested(self):
         return self.flags & 0x10
@@ -524,14 +557,18 @@ class Code:
     def __init__(self, code_obj, parent=None):
         self.code_obj = code_obj
         self.parent = parent
-        self.derefnames = [PyName(v)
-                           for v in code_obj.co_cellvars + code_obj.co_freevars]
+        self.derefnames = [
+            PyName(v)
+            for v in code_obj.co_cellvars + code_obj.co_freevars
+        ]
         self.consts = list(map(PyConst, code_obj.co_consts))
         self.names = list(map(PyName, code_obj.co_names))
         self.varnames = list(map(PyName, code_obj.co_varnames))
         self.instr_seq = list(code_walker(code_obj.co_code))
         self.instr_list = self.instr_seq
-        self.instr_map = {addr: i for i, (addr, _) in enumerate(self.instr_seq)}
+        self.instr_map = {
+            addr: i for i, (addr, _) in enumerate(self.instr_seq)
+        }
         self.name = code_obj.co_name
         self.globals = []
         self.nonlocals = []
@@ -543,7 +580,10 @@ class Code:
         trace('================================================')
         for addr in self:
             trace(str(addr))
-            if addr.opcode in stmt_opcodes or addr.opcode in pop_jump_if_opcodes:
+            if (
+                addr.opcode in stmt_opcodes
+                or addr.opcode in pop_jump_if_opcodes
+            ):
                 trace(' ')
         trace('================================================')
         self.flags: CodeFlags = CodeFlags(code_obj.co_flags)
@@ -571,8 +611,6 @@ class Code:
             return ret
         return self[addr]
 
-
-
     def iscellvar(self, i):
         return i < len(self.code_obj.co_cellvars)
 
@@ -590,8 +628,10 @@ class Code:
             opcode, arg = addr
             if opcode in pop_jump_if_opcodes:
                 jump_addr = self.address(arg)
-                if (jump_addr[-1].opcode in else_jump_opcodes
-                        or jump_addr.opcode == FOR_ITER):
+                if (
+                    jump_addr[-1].opcode in else_jump_opcodes
+                    or jump_addr.opcode == FOR_ITER
+                ):
                     last_jump = addr
                     jumps[jump_addr] = addr
             elif opcode == JUMP_ABSOLUTE:
@@ -614,12 +654,16 @@ class Code:
                 jumps[addr] = last_jump
         self.else_jumps = set(jumps.values())
 
-    def get_suite(self, include_declarations=True, look_for_docstring=False) -> Suite:
+    def get_suite(
+        self, include_declarations=True, look_for_docstring=False
+    ) -> Suite:
         dec = SuiteDecompiler(self[0])
         dec.run()
         first_stmt = dec.suite and dec.suite[0]
         # Change __doc__ = "docstring" to "docstring"
-        if look_for_docstring and isinstance(first_stmt, AssignStatement):
+        if look_for_docstring and isinstance(
+            first_stmt, AssignStatement
+        ):
             chain = first_stmt.chain
             if len(chain) == 2 and str(chain[0]) == "__doc__":
                 dec.suite[0] = DocString(first_stmt.chain[1].val)
@@ -629,7 +673,9 @@ class Code:
                 stmt = "global " + ", ".join(map(str, self.globals))
                 suite.add_statement(SimpleStatement(stmt))
             if self.nonlocals:
-                stmt = "nonlocal " + ", ".join(map(str, self.nonlocals))
+                stmt = "nonlocal " + ", ".join(
+                    map(str, self.nonlocals)
+                )
                 suite.add_statement(SimpleStatement(stmt))
             for stmt in dec.suite:
                 suite.add_statement(stmt)
@@ -667,52 +713,69 @@ class Code:
             self.nonlocals.append(name)
 
 
-
 class Address:
     def __init__(self, code, instr_index):
         self.code = code
         self.index = instr_index
-        self.addr, (self.opcode, self.arg) = code.instr_seq[instr_index]
+        self.addr, (self.opcode, self.arg) = code.instr_seq[
+            instr_index
+        ]
 
     def __eq__(self, other):
-        return (isinstance(other, type(self))
-                and self.code == other.code and self.index == other.index)
+        return (
+            isinstance(other, type(self))
+            and self.code == other.code
+            and self.index == other.index
+        )
 
     def __lt__(self, other):
-        return other is None or (isinstance(other, type(self))
-                                 and self.code == other.code and self.index < other.index)
+        return other is None or (
+            isinstance(other, type(self))
+            and self.code == other.code
+            and self.index < other.index
+        )
 
     def __str__(self):
         mark = "* " if self in self.code.else_jumps else "  "
         jump = self.jump()
         jt = '>>' if self.is_jump_target else '  '
         arg = self.arg or "  "
-        jdest = '\t(to {})'.format(jump.addr) if jump and jump.addr != self.arg else ''
+        jdest = (
+            '\t(to {})'.format(jump.addr)
+            if jump and jump.addr != self.arg
+            else ''
+        )
         val = ''
         op = opname[self.opcode].ljust(18, ' ')
         try:
 
-            val = self.code.globals[self.arg] and self.arg + 1 < len(self.code.globals) if 'GLOBAL' in op else \
-                self.code.names[self.arg] if 'ATTR' in op else \
-                    self.code.names[self.arg] if 'NAME' in op else \
-                        self.code.names[self.arg] if 'LOAD_METHOD' in op else \
-                            self.code.consts[self.arg] if 'CONST' in op else \
-                                self.code.varnames[self.arg] if 'FAST' in op else \
-                                    self.code.derefnames[self.arg] if 'DEREF' in op else \
-                                        cmp_op[self.arg] if 'COMPARE' in op else ''
+            val = (
+                self.code.globals[self.arg]
+                and self.arg + 1 < len(self.code.globals)
+                if 'GLOBAL' in op
+                else self.code.names[self.arg]
+                if 'ATTR' in op
+                else self.code.names[self.arg]
+                if 'NAME' in op
+                else self.code.names[self.arg]
+                if 'LOAD_METHOD' in op
+                else self.code.consts[self.arg]
+                if 'CONST' in op
+                else self.code.varnames[self.arg]
+                if 'FAST' in op
+                else self.code.derefnames[self.arg]
+                if 'DEREF' in op
+                else cmp_op[self.arg]
+                if 'COMPARE' in op
+                else ''
+            )
             if val != '':
                 val = '\t({})'.format(val)
         except:
             pass
 
         return "{}{}\t{}\t{}\t{}{}{}".format(
-            jt,
-            mark,
-            self.addr,
-            op,
-            arg,
-            jdest,
-            val
+            jt, mark, self.addr, op, arg, jdest, val
         )
 
     def __add__(self, delta):
@@ -746,7 +809,9 @@ class Address:
         elif opcode in dis.hasjabs:
             return self.code.address(self.arg)
 
-    def seek(self, opcode: Iterable, increment: int, end: Address = None) -> Address:
+    def seek(
+        self, opcode: Iterable, increment: int, end: Address = None
+    ) -> Address:
         if not isinstance(opcode, Iterable):
             opcode = (opcode,)
         a = self[increment]
@@ -755,18 +820,25 @@ class Address:
                 return a
             a = a[increment]
 
-    def seek_back(self, opcode: Union[Iterable, int], end: Address = None) -> Address:
+    def seek_back(
+        self, opcode: Union[Iterable, int], end: Address = None
+    ) -> Address:
         return self.seek(opcode, -1, end)
 
-    def seek_forward(self, opcode: Union[Iterable, int], end: Address = None) -> Address:
+    def seek_forward(
+        self, opcode: Union[Iterable, int], end: Address = None
+    ) -> Address:
         return self.seek(opcode, 1, end)
 
-
-    def seek_back_statement(self, opcode: Union[Iterable, int]) -> Address:
+    def seek_back_statement(
+        self, opcode: Union[Iterable, int]
+    ) -> Address:
         last_statement = self.seek_back(stmt_opcodes)
         return self.seek(opcode, -1, last_statement)
 
-    def seek_forward_statement(self, opcode: Union[Iterable, int]) -> Address:
+    def seek_forward_statement(
+        self, opcode: Union[Iterable, int]
+    ) -> Address:
         next_statement = self.seek_forward(stmt_opcodes)
         return self.seek(opcode, 1, next_statement)
 
@@ -781,7 +853,6 @@ class AsyncMixin:
 
 
 class AwaitableMixin:
-
     def __init__(self):
         self.is_awaited = False
 
@@ -805,16 +876,15 @@ class PyExpr:
             dec.suite.add_statement(AssignStatement(chain))
             dec.assignment_chain = []
 
-    def on_pop(self, dec : SuiteDecompiler):
+    def on_pop(self, dec: SuiteDecompiler):
         dec.write(str(self))
 
 
 class PyConst(PyExpr):
-
     def __init__(self, val):
         self.val = val
         if isinstance(val, int):
-            self.precedence=14
+            self.precedence = 14
         else:
             self.precedence = 100
 
@@ -843,6 +913,7 @@ class PyFormatValue(PyConst):
     def __str__(self):
         return self.fmt(self.base())
 
+
 class PyFormatString(PyExpr):
     precedence = 100
 
@@ -851,11 +922,20 @@ class PyFormatString(PyExpr):
         self.params = params
 
     def __str__(self):
-        return "f'{}'".format(''.join([
-            p.base().replace('\'', '\"') if isinstance(p, PyFormatValue) else
-            p.name if isinstance(p, PyName) else
-            str(p.val.encode('utf-8'))[1:].replace('\'', '').replace('{','{{').replace('}','}}')
-            for p in self.params])
+        return "f'{}'".format(
+            ''.join(
+                [
+                    p.base().replace('\'', '\"')
+                    if isinstance(p, PyFormatValue)
+                    else p.name
+                    if isinstance(p, PyName)
+                    else str(p.val.encode('utf-8'))[1:]
+                    .replace('\'', '')
+                    .replace('{', '{{')
+                    .replace('}', '}}')
+                    for p in self.params
+                ]
+            )
         )
 
 
@@ -868,8 +948,10 @@ class PyTuple(PyExpr):
     def __str__(self):
         if not self.values:
             return "()"
-        valstr = [val.wrap(val.precedence <= self.precedence)
-                  for val in self.values]
+        valstr = [
+            val.wrap(val.precedence <= self.precedence)
+            for val in self.values
+        ]
         if len(valstr) == 1:
             return '(' + valstr[0] + "," + ')'
         else:
@@ -889,8 +971,9 @@ class PyList(PyExpr):
         self.values = values
 
     def __str__(self):
-        valstr = ", ".join(val.wrap(val.precedence <= 0)
-                           for val in self.values)
+        valstr = ", ".join(
+            val.wrap(val.precedence <= 0) for val in self.values
+        )
         return "[{}]".format(valstr)
 
     def __iter__(self):
@@ -904,8 +987,9 @@ class PySet(PyExpr):
         self.values = values
 
     def __str__(self):
-        valstr = ", ".join(val.wrap(val.precedence <= 0)
-                           for val in self.values)
+        valstr = ", ".join(
+            val.wrap(val.precedence <= 0) for val in self.values
+        )
         return "{{{}}}".format(valstr)
 
     def __iter__(self):
@@ -922,11 +1006,14 @@ class PyDict(PyExpr):
         self.items.append((key, val))
 
     def __str__(self):
-        itemstr = ", ".join(f"{kv[0]}: {kv[1]}" if len(kv) == 2 else str(kv[0]) for kv in self.items)
+        itemstr = ", ".join(
+            f"{kv[0]}: {kv[1]}" if len(kv) == 2 else str(kv[0])
+            for kv in self.items
+        )
         return f"{{{itemstr}}}"
 
 
-class PyName(PyExpr,AwaitableMixin):
+class PyName(PyExpr, AwaitableMixin):
     precedence = 100
 
     def __init__(self, name):
@@ -937,7 +1024,9 @@ class PyName(PyExpr,AwaitableMixin):
         return f'{self.await_prefix}{self.name}'
 
     def __eq__(self, other):
-        return isinstance(other, type(self)) and self.name == other.name
+        return (
+            isinstance(other, type(self)) and self.name == other.name
+        )
 
 
 class PyUnaryOp(PyExpr):
@@ -945,7 +1034,9 @@ class PyUnaryOp(PyExpr):
         self.operand = operand
 
     def __str__(self):
-        opstr = self.operand.wrap(self.operand.precedence < self.precedence)
+        opstr = self.operand.wrap(
+            self.operand.precedence < self.precedence
+        )
         return self.pattern.format(opstr)
 
     @classmethod
@@ -962,10 +1053,14 @@ class PyBinaryOp(PyExpr):
         return self.left.wrap(self.left.precedence < self.precedence)
 
     def wrap_right(self):
-        return self.right.wrap(self.right.precedence <= self.precedence)
+        return self.right.wrap(
+            self.right.precedence <= self.precedence
+        )
 
     def __str__(self):
-        return self.pattern.format(self.wrap_left(), self.wrap_right())
+        return self.pattern.format(
+            self.wrap_left(), self.wrap_right()
+        )
 
     @classmethod
     def instr(cls, stack):
@@ -981,10 +1076,11 @@ class PySubscript(PyBinaryOp):
     def wrap_right(self):
         return str(self.right)
 
+
 class PyInOp(PyBinaryOp, PyExpr):
     precedence = 15
     pattern = "{item}{_not} in {seq}"
-    
+
     def __init__(self, left, right, negate):
         super(PyInOp, self).__init__(left, right)
         self.negate = negate
@@ -993,19 +1089,22 @@ class PyInOp(PyBinaryOp, PyExpr):
         return self.left.wrap(self.left.precedence < self.precedence)
 
     def wrap_right(self):
-        return self.right.wrap(self.right.precedence <= self.precedence)
+        return self.right.wrap(
+            self.right.precedence <= self.precedence
+        )
 
     def __str__(self):
         return self.pattern.format(
-          item=self.wrap_left(),
-          seq=self.wrap_right(),
-          _not = "not " if self.negate else ""
+            item=self.wrap_left(),
+            seq=self.wrap_right(),
+            _not="not " if self.negate else "",
         )
+
 
 class PyIsOp(PyBinaryOp, PyExpr):
     precedence = 15
     pattern = "{} is {}{}"
-    
+
     def __init__(self, left, right, negate):
         super(PyIsOp, self).__init__(left, right)
         self.negate = negate
@@ -1014,14 +1113,16 @@ class PyIsOp(PyBinaryOp, PyExpr):
         return self.left.wrap(self.left.precedence < self.precedence)
 
     def wrap_right(self):
-        return self.right.wrap(self.right.precedence <= self.precedence)
+        return self.right.wrap(
+            self.right.precedence <= self.precedence
+        )
 
     def __str__(self):
         return self.pattern.format(
-          self.wrap_left(), "not " if self.negate else "", self.wrap_right()
+            self.wrap_left(),
+            "not " if self.negate else "",
+            self.wrap_right(),
         )
-
-
 
 
 class PySlice(PyExpr):
@@ -1053,8 +1154,10 @@ class PyCompare(PyExpr):
         self.complist = complist
 
     def __str__(self):
-        return " ".join(x if i % 2 else x.wrap(x.precedence <= 6)
-                        for i, x in enumerate(self.complist))
+        return " ".join(
+            x if i % 2 else x.wrap(x.precedence <= 6)
+            for i, x in enumerate(self.complist)
+        )
 
     def extends(self, other):
         if not isinstance(other, PyCompare):
@@ -1089,7 +1192,9 @@ class PyIfElse(PyExpr):
         cond_str = self.cond.wrap(self.cond.precedence <= p)
         true_str = self.true_expr.wrap(self.cond.precedence <= p)
         false_str = self.false_expr.wrap(self.cond.precedence < p)
-        return "{} if {} else {}".format(true_str, cond_str, false_str)
+        return "{} if {} else {}".format(
+            true_str, cond_str, false_str
+        )
 
 
 class PyAttribute(PyExpr):
@@ -1100,7 +1205,9 @@ class PyAttribute(PyExpr):
         self.attrname = attrname
 
     def __str__(self):
-        expr_str = self.expr.wrap(self.expr.precedence < self.precedence)
+        expr_str = self.expr.wrap(
+            self.expr.precedence < self.precedence
+        )
         attrname = self.attrname
 
         if isinstance(self.expr, PyName) and self.expr.name == 'self':
@@ -1113,18 +1220,38 @@ class PyAttribute(PyExpr):
 class PyCallFunction(PyExpr, AwaitableMixin):
     precedence = 15
 
-    def __init__(self, func: PyAttribute, args: list, kwargs: list, varargs=None, varkw=None):
+    def __init__(
+        self,
+        func: PyAttribute,
+        args: list,
+        kwargs: list,
+        varargs=None,
+        varkw=None,
+    ):
         AwaitableMixin.__init__(self)
         self.func = func
         self.args = args
         self.kwargs = kwargs
-        self.varargs = varargs if not varargs or isinstance(varargs,Iterable) else {varargs}
-        self.varkw = varkw if not varkw or isinstance(varkw,Iterable) else {varkw}
+        self.varargs = (
+            varargs
+            if not varargs or isinstance(varargs, Iterable)
+            else {varargs}
+        )
+        self.varkw = (
+            varkw
+            if not varkw or isinstance(varkw, Iterable)
+            else {varkw}
+        )
 
     def __str__(self):
-        funcstr = self.func.wrap(self.func.precedence < self.precedence)
-        if hasattr(self.args, '__iter__') and len(self.args) == 1 and not (self.kwargs or self.varargs
-                                                                           or self.varkw):
+        funcstr = self.func.wrap(
+            self.func.precedence < self.precedence
+        )
+        if (
+            hasattr(self.args, '__iter__')
+            and len(self.args) == 1
+            and not (self.kwargs or self.varargs or self.varkw)
+        ):
             arg = self.args[0]
             if isinstance(arg, PyGenExpr):
                 # Only one pair of brackets arount a single arg genexpr
@@ -1133,16 +1260,30 @@ class PyCallFunction(PyExpr, AwaitableMixin):
         if self.varargs is not None:
             for varargs in self.varargs:
                 args.append("*{}".format(varargs))
-        args.extend("{}={}".format(str(k).replace('\'', ''), v.wrap(v.precedence <= 0))
-                    for k, v in self.kwargs)
+        args.extend(
+            "{}={}".format(
+                str(k).replace('\'', ''), v.wrap(v.precedence <= 0)
+            )
+            for k, v in self.kwargs
+        )
         if self.varkw is not None:
             for varkw in self.varkw:
                 args.append("**{}".format(varkw))
-        return "{}{}({})".format(self.await_prefix, funcstr, ", ".join(args))
+        return "{}{}({})".format(
+            self.await_prefix, funcstr, ", ".join(args)
+        )
 
 
 class FunctionDefinition:
-    def __init__(self, code: Code, defaults, kwdefaults, closure, paramobjs=None, annotations=None):
+    def __init__(
+        self,
+        code: Code,
+        defaults,
+        kwdefaults,
+        closure,
+        paramobjs=None,
+        annotations=None,
+    ):
         self.code = code
         self.defaults = defaults
         self.kwdefaults = kwdefaults
@@ -1159,14 +1300,18 @@ class FunctionDefinition:
         params = []
         for name in code_obj.co_varnames[:l]:
             if name in self.paramobjs:
-                params.append('{}:{}'.format(name, str(self.paramobjs[name])))
+                params.append(
+                    '{}:{}'.format(name, str(self.paramobjs[name]))
+                )
             else:
                 params.append(name)
         if self.defaults:
             for i, arg in enumerate(reversed(self.defaults)):
                 name = params[-i - 1]
                 if name in self.paramobjs:
-                    params[-i - 1] = "{}:{}={}".format(name, str(self.paramobjs[name]), arg)
+                    params[-i - 1] = "{}:{}={}".format(
+                        name, str(self.paramobjs[name]), arg
+                    )
                 else:
                     params[-i - 1] = "{}={}".format(name, arg)
         kwcount = code_obj.co_kwonlyargcount
@@ -1175,9 +1320,17 @@ class FunctionDefinition:
             for i in range(kwcount):
                 name = code_obj.co_varnames[l + i]
                 if name in self.kwdefaults and name in self.paramobjs:
-                    kwparams.append("{}:{}={}".format(name, self.paramobjs[name], self.kwdefaults[name]))
+                    kwparams.append(
+                        "{}:{}={}".format(
+                            name,
+                            self.paramobjs[name],
+                            self.kwdefaults[name],
+                        )
+                    )
                 elif name in self.kwdefaults:
-                    kwparams.append("{}={}".format(name, self.kwdefaults[name]))
+                    kwparams.append(
+                        "{}={}".format(name, self.kwdefaults[name])
+                    )
                 else:
                     kwparams.append(name)
             l += kwcount
@@ -1213,8 +1366,13 @@ class PyLambda(PyExpr, FunctionDefinition):
         suite = self.code.get_suite()
         params = ", ".join(self.getparams())
         if len(suite.statements) > 0:
+
             def strip_return(val):
-                return val[len("return "):] if val.startswith('return') else val
+                return (
+                    val[len("return ") :]
+                    if val.startswith('return')
+                    else val
+                )
 
             def strip_yield_none(val):
                 return '(yield)' if val == 'yield None' else val
@@ -1224,7 +1382,7 @@ class PyLambda(PyExpr, FunctionDefinition):
                 expr = "{} if {} else {}".format(
                     strip_return(str(suite[0].true_suite)),
                     str(suite[0].cond),
-                    strip_return(str(end))
+                    strip_return(str(end)),
                 )
             else:
                 expr = strip_return(str(suite[0]))
@@ -1238,9 +1396,18 @@ class PyComp(PyExpr):
     """
     Abstraction for list, set, dict comprehensions and generator expressions
     """
+
     precedence = 16
 
-    def __init__(self, code, defaults, kwdefaults, closure, paramobjs={}, annotations=[]):
+    def __init__(
+        self,
+        code,
+        defaults,
+        kwdefaults,
+        closure,
+        paramobjs={},
+        annotations=[],
+    ):
         assert not defaults and not kwdefaults
         self.code = code
         code[0].change_instr(NOP)
@@ -1266,6 +1433,7 @@ class PySetComp(PyComp):
 
 class PyKeyValue(PyBinaryOp):
     """This is only to create dict comprehensions"""
+
     precedence = 1
     pattern = "{}: {}"
 
@@ -1278,7 +1446,15 @@ class PyGenExpr(PyComp):
     precedence = 16
     pattern = "({})"
 
-    def __init__(self, code, defaults, kwdefaults, closure, paramobjs={}, annotations=[]):
+    def __init__(
+        self,
+        code,
+        defaults,
+        kwdefaults,
+        closure,
+        paramobjs={},
+        annotations=[],
+    ):
         self.code = code
 
 
@@ -1304,6 +1480,7 @@ class PyYieldFrom(PyExpr):
 
 class PyStarred(PyExpr):
     """Used in unpacking assigments"""
+
     precedence = 15
 
     def __init__(self, expr):
@@ -1314,10 +1491,10 @@ class PyStarred(PyExpr):
         return "*{}".format(es)
 
 
-
 class PyListExtend(PyBinaryOp):
     precedence = 15
     pattern = "({}+{})"
+
     def wrap_right(self):
         return str(self.right)
 
@@ -1325,6 +1502,7 @@ class PyListExtend(PyBinaryOp):
 class PySetUpdate(PyBinaryOp):
     precedence = 15
     pattern = "{}.update({})"
+
     def wrap_right(self):
         return str(self.right)
 
@@ -1332,6 +1510,7 @@ class PySetUpdate(PyBinaryOp):
 class PyDictMerge(PyBinaryOp):
     precedence = 15
     pattern = "dict(**{},**{})"
+
     def wrap_right(self):
         return str(self.right)
 
@@ -1339,6 +1518,7 @@ class PyDictMerge(PyBinaryOp):
 class PyDictUpdate(PyBinaryOp):
     precedence = 15
     pattern = "{}.update({})"
+
     def wrap_right(self):
         return str(self.right)
 
@@ -1407,8 +1587,12 @@ class DocString(PyStatement):
             else:
                 fence = '"""'
             lines = self.string.split('\n')
-            text = '\n'.join(l.encode('unicode_escape').decode().replace(fence,'\\'+fence)
-                             for l in lines)
+            text = '\n'.join(
+                l.encode('unicode_escape')
+                .decode()
+                .replace(fence, '\\' + fence)
+                for l in lines
+            )
             docstring = "{0}{1}{0}".format(fence, text)
             indent.write(docstring)
 
@@ -1493,8 +1677,12 @@ class ImportStatement(PyStatement):
                     names.append(name)
                 else:
                     names.append("{} as {}".format(name, alias))
-            indent.write("from {}{} import {}", ''.join(['.' for i in range(self.level.val)]), self.name,
-                         ", ".join(names))
+            indent.write(
+                "from {}{} import {}",
+                ''.join(['.' for i in range(self.level.val)]),
+                self.name,
+                ", ".join(names),
+            )
 
 
 class ImportFrom:
@@ -1560,7 +1748,12 @@ class ForStatement(PyStatement, AsyncMixin):
         self.dest = dest
 
     def display(self, indent):
-        indent.write("{}for {} in {}:", self.async_prefix, self.dest, self.iterable)
+        indent.write(
+            "{}for {} in {}:",
+            self.async_prefix,
+            self.dest,
+            self.iterable,
+        )
         if self.body:
             self.body.display(indent + 1)
         if self.else_body:
@@ -1568,7 +1761,13 @@ class ForStatement(PyStatement, AsyncMixin):
             self.else_body.display(indent + 1)
 
     def gen_display(self, seq=()):
-        s = "{}for {} in {}".format(self.async_prefix, self.dest, self.iterable.wrap() if isinstance(self.iterable, PyIfElse) else self.iterable)
+        s = "{}for {} in {}".format(
+            self.async_prefix,
+            self.dest,
+            self.iterable.wrap()
+            if isinstance(self.iterable, PyIfElse)
+            else self.iterable,
+        )
         return self.body.gen_display(seq + (s,))
 
 
@@ -1597,20 +1796,51 @@ class DecorableStatement(PyStatement):
         self.decorators.append(f)
 
 
-class DefStatement(FunctionDefinition, DecorableStatement, AsyncMixin):
-    def __init__(self, code: Code, defaults, kwdefaults, closure, paramobjs=None, annotations=None):
-        FunctionDefinition.__init__(self, code, defaults, kwdefaults, closure, paramobjs, annotations)
+class DefStatement(
+    FunctionDefinition, DecorableStatement, AsyncMixin
+):
+    def __init__(
+        self,
+        code: Code,
+        defaults,
+        kwdefaults,
+        closure,
+        paramobjs=None,
+        annotations=None,
+    ):
+        FunctionDefinition.__init__(
+            self,
+            code,
+            defaults,
+            kwdefaults,
+            closure,
+            paramobjs,
+            annotations,
+        )
         DecorableStatement.__init__(self)
         AsyncMixin.__init__(self)
-        self.is_async = code.flags.coroutine or code.flags.async_generator
+        self.is_async = (
+            code.flags.coroutine or code.flags.async_generator
+        )
 
     def display_undecorated(self, indent):
         paramlist = ", ".join(self.getparams())
         result = self.getreturn()
         if result:
-            indent.write("{}def {}({}) -> {}:", self.async_prefix, self.code.name, paramlist, result)
+            indent.write(
+                "{}def {}({}) -> {}:",
+                self.async_prefix,
+                self.code.name,
+                paramlist,
+                result,
+            )
         else:
-            indent.write("{}def {}({}):", self.async_prefix, self.code.name, paramlist)
+            indent.write(
+                "{}def {}({}):",
+                self.async_prefix,
+                self.code.name,
+                paramlist,
+            )
         # Assume that co_consts starts with None unless the function
         # has a docstring, in which case it starts with the docstring
         if self.code.consts[0] != PyConst(None):
@@ -1696,11 +1926,17 @@ class WithStatement(PyStatement):
         if self.with_name is None:
             args.append(str(self.with_expr))
         else:
-            args.append("{} as {}".format(self.with_expr, self.with_name))
-        if len(self.suite) == 1 and isinstance(self.suite[0], WithStatement):
+            args.append(
+                "{} as {}".format(self.with_expr, self.with_name)
+            )
+        if len(self.suite) == 1 and isinstance(
+            self.suite[0], WithStatement
+        ):
             self.suite[0].display(indent, args)
         else:
-            indent.write(self.async_prefix + "with {}:", ", ".join(args))
+            indent.write(
+                self.async_prefix + "with {}:", ", ".join(args)
+            )
             self.suite.display(indent + 1)
 
 
@@ -1718,7 +1954,10 @@ class ClassStatement(DecorableStatement):
     def display_undecorated(self, indent):
         if self.parents or self.kwargs:
             args = [str(x) for x in self.parents]
-            kwargs = ["{}={}".format(str(k).replace('\'', ''), v) for k, v in self.kwargs]
+            kwargs = [
+                "{}={}".format(str(k).replace('\'', ''), v)
+                for k, v in self.kwargs
+            ]
             all_args = ", ".join(args + kwargs)
             indent.write("class {}({}):", self.name, all_args)
         else:
@@ -1735,7 +1974,9 @@ class ClassStatement(DecorableStatement):
             for clean_var in clean_vars:
                 for i in range(len(suite.statements)):
                     stmt = suite.statements[i]
-                    if isinstance(stmt, AssignStatement) and str(stmt).startswith(clean_var):
+                    if isinstance(stmt, AssignStatement) and str(
+                        stmt
+                    ).startswith(clean_var):
                         suite.statements.pop(i)
                         break
 
@@ -1772,7 +2013,9 @@ class Suite:
 
     def gen_display(self, seq=()):
         if len(self) != 1:
-            raise Exception('There should only be one statement in a generator.')
+            raise Exception(
+                'There should only be one statement in a generator.'
+            )
         return self[0].gen_display(seq)
 
     def add_statement(self, stmt):
@@ -1795,27 +2038,26 @@ class SuiteDecompiler:
         self.suite: Suite = Suite()
         self.assignment_chain = []
         self.popjump_stack = []
-        
+
     def IS_OP(self, addr, oparg):
-       # case TARGET(IS_OP):
-       right = self.stack.pop()
-       left = self.stack.peek() # was TOP()
-       # res: int = (1 if left == right else 0) ^ oparg;
-       # b : bool = True if res else False;
-       self.stack.push(PyIsOp(left, right, oparg))
-       # self.stack.push(b);
-    
-    
+        # case TARGET(IS_OP):
+        right = self.stack.pop()
+        left = self.stack.peek()  # was TOP()
+        # res: int = (1 if left == right else 0) ^ oparg;
+        # b : bool = True if res else False;
+        self.stack.push(PyIsOp(left, right, oparg))
+        # self.stack.push(b);
+
     def CONTAINS_OP(self, addr, oparg):
-           right = self.stack.pop()
-           left = self.stack.pop()
-           pyseq = right;
-           item = left;
-           # res: int = 1 if (left in pyseq) else 0;
-           # if res < 0: raise AssertionError("res < 0: %d" % res)
-           # b: bool = true if (res ^ oparg) else false
-           # self.stack.push(b)
-           self.stack.push(PyInOp(left, right, oparg))
+        right = self.stack.pop()
+        left = self.stack.pop()
+        pyseq = right
+        item = left
+        # res: int = 1 if (left in pyseq) else 0;
+        # if res < 0: raise AssertionError("res < 0: %d" % res)
+        # b: bool = true if (res ^ oparg) else false
+        # self.stack.push(b)
+        self.stack.push(PyInOp(left, right, oparg))
 
     def push_popjump(self, jtruthiness, jaddr, jcond, original_jaddr):
         stack = self.popjump_stack
@@ -1853,15 +2095,24 @@ class SuiteDecompiler:
             if isinstance(jcond, obj_maker):
                 # Use associativity of 'and' and 'or' to minimise the
                 # number of parentheses
-                jcond = obj_maker(obj_maker(cond, jcond.left), jcond.right)
+                jcond = obj_maker(
+                    obj_maker(cond, jcond.left), jcond.right
+                )
             else:
                 jcond = obj_maker(cond, jcond)
         stack.append((jtruthiness, jaddr, jcond, original_jaddr))
 
     def pop_popjump(self):
         if not self.popjump_stack:
-            raise Exception('Attempted to pop an empty popjump stack.')
-        truthiness, addr, cond, original_addr = self.popjump_stack.pop()
+            raise Exception(
+                'Attempted to pop an empty popjump stack.'
+            )
+        (
+            truthiness,
+            addr,
+            cond,
+            original_addr,
+        ) = self.popjump_stack.pop()
         return cond
 
     def run(self):
@@ -1911,7 +2162,9 @@ class SuiteDecompiler:
             i = i + 1
         return False
 
-    def scan_to_first_jump_if(self, addr: Address, end_addr: Address) -> Union[Address, None]:
+    def scan_to_first_jump_if(
+        self, addr: Address, end_addr: Address
+    ) -> Union[Address, None]:
         i = 0
         while 1:
             cur_addr = addr[i]
@@ -1952,7 +2205,13 @@ class SuiteDecompiler:
         end_addr = jump_addr[-1]
 
         end_cond = self.scan_to_first_jump_if(addr[1], end_addr)
-        if end_addr.opcode in (POP_BLOCK,POP_TOP) or not end_cond or end_addr.seek_back(else_jump_opcodes,end_addr.seek_back(stmt_opcodes)):  # assume conditional
+        if (
+            end_addr.opcode in (POP_BLOCK, POP_TOP)
+            or not end_cond
+            or end_addr.seek_back(
+                else_jump_opcodes, end_addr.seek_back(stmt_opcodes)
+            )
+        ):  # assume conditional
             # scan to first jump
             end_jump = None if not end_cond else end_cond.jump()
             if end_jump and end_jump.opcode == POP_BLOCK:
@@ -1975,9 +2234,13 @@ class SuiteDecompiler:
                 while_stmt.body = d_body.suite
                 self.suite.add_statement(while_stmt)
                 return jump_addr
-            elif (not end_cond or not end_cond.jump()[1] == addr.jump()) and not self.is_for_loop(addr[1], end_addr):
+            elif (
+                not end_cond or not end_cond.jump()[1] == addr.jump()
+            ) and not self.is_for_loop(addr[1], end_addr):
                 d_body = SuiteDecompiler(addr[1], end_addr)
-                while_stmt = WhileStatement(PyConst(True), d_body.suite)
+                while_stmt = WhileStatement(
+                    PyConst(True), d_body.suite
+                )
                 d_body.stack.push(while_stmt)
                 d_body.run()
                 while_stmt.body = d_body.suite
@@ -1997,7 +2260,9 @@ class SuiteDecompiler:
         d_try.run()
         d_finally = SuiteDecompiler(start_finally)
         end_finally = d_finally.run()
-        self.suite.add_statement(FinallyStatement(d_try.suite, d_finally.suite))
+        self.suite.add_statement(
+            FinallyStatement(d_try.suite, d_finally.suite)
+        )
         if end_finally:
             return end_finally[1]
         else:
@@ -2043,7 +2308,10 @@ class SuiteDecompiler:
                 end_except = start_except
 
                 nested_try: int = 0
-                while end_except and end_except[-1].opcode != RETURN_VALUE:
+                while (
+                    end_except
+                    and end_except[-1].opcode != RETURN_VALUE
+                ):
                     if end_except.opcode == SETUP_EXCEPT:
                         nested_try += 1
                     if end_except.opcode == POP_EXCEPT:
@@ -2053,7 +2321,9 @@ class SuiteDecompiler:
                     end_except = end_except[1]
                 # Handle edge case where there is a return in the except
                 if end_except[-1].opcode == RETURN_VALUE:
-                    d_except = SuiteDecompiler(start_except, end_except)
+                    d_except = SuiteDecompiler(
+                        start_except, end_except
+                    )
                     end_except = d_except.run()
                     stmt.add_except_clause(None, d_except.suite)
                     self.suite.add_statement(stmt)
@@ -2068,7 +2338,11 @@ class SuiteDecompiler:
                 end_addr = start_except[1]
                 j_except: Address = end_except[1]
         self.suite.add_statement(stmt)
-        if j_except and j_except.opcode in (JUMP_FORWARD, JUMP_ABSOLUTE, RETURN_VALUE):
+        if j_except and j_except.opcode in (
+            JUMP_FORWARD,
+            JUMP_ABSOLUTE,
+            RETURN_VALUE,
+        ):
             j_next = j_except.jump()
             start_else = end_addr
             if j_next:
@@ -2117,31 +2391,43 @@ class SuiteDecompiler:
             return end_with[3]
         elif end_with.opcode == WITH_EXCEPT_START:
             """
-        TARGET(WITH_EXCEPT_START) {
-            /* At the top of the stack are 4 values:
-               - TOP = exc_info()
-               - SECOND = previous exception
-               - THIRD: lasti of exception in exc_info()
-               - FOURTH: the context.__exit__ bound method
-               We call FOURTH(type(TOP), TOP, GetTraceback(TOP)).
-               Then we push the __exit__ return value.
-            */
-            PyObject *exit_func;
-            PyObject *exc, *val, *tb, *res;
-            val = TOP();
-            assert(val && PyExceptionInstance_Check(val));
-            exc = PyExceptionInstance_Class(val);
-            tb = PyException_GetTraceback(val);
-            Py_XDECREF(tb);
-            assert(PyLong_Check(PEEK(3)));
-            exit_func = PEEK(4);
-            PyObject *stack[4] = {NULL, exc, val, tb};
-            res = PyObject_Vectorcall(exit_func, stack + 1,
-                    3 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
-        }
+            TARGET(WITH_EXCEPT_START) {
+                /* At the top of the stack are 4 values:
+                   - TOP = exc_info()
+                   - SECOND = previous exception
+                   - THIRD: lasti of exception in exc_info()
+                   - FOURTH: the context.__exit__ bound method
+                   We call FOURTH(type(TOP), TOP, GetTraceback(TOP)).
+                   Then we push the __exit__ return value.
+                */
+                PyObject *exit_func;
+                PyObject *exc, *val, *tb, *res;
+                val = TOP();
+                assert(val && PyExceptionInstance_Check(val));
+                exc = PyExceptionInstance_Class(val);
+                tb = PyException_GetTraceback(val);
+                Py_XDECREF(tb);
+                assert(PyLong_Check(PEEK(3)));
+                exit_func = PEEK(4);
+                PyObject *stack[4] = {NULL, exc, val, tb};
+                res = PyObject_Vectorcall(exit_func, stack + 1,
+                        3 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
+            }
             """
-            start_index = [idx for idx, (a, (k,v)) in enumerate(end_with.code.instr_seq) if a == end_with[0].addr][0]
-            end_index = [idx for idx, (a, (k,v)) in enumerate(end_with.code.instr_seq) if idx > start_index and k == POP_EXCEPT][0]
+            start_index = [
+                idx
+                for idx, (a, (k, v)) in enumerate(
+                    end_with.code.instr_seq
+                )
+                if a == end_with[0].addr
+            ][0]
+            end_index = [
+                idx
+                for idx, (a, (k, v)) in enumerate(
+                    end_with.code.instr_seq
+                )
+                if idx > start_index and k == POP_EXCEPT
+            ][0]
             """
 >>      182     WITH_EXCEPT_START
         184     POP_JUMP_IF_TRUE        188
@@ -2150,12 +2436,17 @@ class SuiteDecompiler:
         190     POP_TOP
         192     POP_TOP
         194     POP_EXCEPT
-            """            
+            """
             assert end_with.opcode == WITH_EXCEPT_START
-            assert end_with[end_index - start_index].opcode == POP_EXCEPT
+            assert (
+                end_with[end_index - start_index].opcode == POP_EXCEPT
+            )
             return end_with[end_index - start_index]
         else:
-            raise AssertionError("Unexpectee opcode at start of BEGIN_WITH: end_with.opcode = {}".format(end_with.opcode))
+            raise AssertionError(
+                "Unexpectee opcode at start of BEGIN_WITH:"
+                " end_with.opcode = {}".format(end_with.opcode)
+            )
 
     def POP_BLOCK(self, addr):
         pass
@@ -2172,7 +2463,9 @@ class SuiteDecompiler:
     def COMPARE_OP(self, addr, compare_opname):
         left, right = self.stack.pop(2)
         if compare_opname != 10:  # 10 is exception match
-            self.stack.push(PyCompare([left, cmp_op[compare_opname], right]))
+            self.stack.push(
+                PyCompare([left, cmp_op[compare_opname], right])
+            )
         else:
             # It's an exception match
             # left is a TryStatement
@@ -2212,22 +2505,24 @@ class SuiteDecompiler:
 
     def POP_TOP(self, addr):
         self.stack.pop().on_pop(self)
-    
+
     calls = []
-    
+
     def PRINT_EXPR(self, addr):
-        
+
         expr = self.stack.pop()
         self.calls += [(self, addr, expr)]
-        
+
         self.write("{}", expr)
         # expr.on_pop(self)
-    
+
     def ROT_TWO(self, addr):
         # special case: x, y = z, t
-        if addr[2] and \
-                addr[1].opcode == STORE_NAME and \
-                addr[2].opcode == STORE_NAME:
+        if (
+            addr[2]
+            and addr[1].opcode == STORE_NAME
+            and addr[2].opcode == STORE_NAME
+        ):
             val = PyTuple(self.stack.pop(2))
             unpack = Unpack(val, 2)
             self.stack.push(unpack)
@@ -2238,11 +2533,13 @@ class SuiteDecompiler:
 
     def ROT_THREE(self, addr):
         # special case: x, y, z = a, b, c
-        if addr[4] and \
-                addr[1].opcode == ROT_TWO and \
-                addr[2].opcode == STORE_NAME and \
-                addr[3].opcode == STORE_NAME and \
-                addr[4].opcode == STORE_NAME:
+        if (
+            addr[4]
+            and addr[1].opcode == ROT_TWO
+            and addr[2].opcode == STORE_NAME
+            and addr[3].opcode == STORE_NAME
+            and addr[4].opcode == STORE_NAME
+        ):
             val = PyTuple(self.stack.pop(3))
             unpack = Unpack(val, 3)
             self.stack.push(unpack)
@@ -2350,7 +2647,9 @@ class SuiteDecompiler:
             # TODO: check the assert statement below is correct
             assert not (have_var or have_kw)
             func, name, *parents = posargs
-            self.stack.push(ClassStatement(func, name, parents, kwargs))
+            self.stack.push(
+                ClassStatement(func, name, parents, kwargs)
+            )
         elif isinstance(func, PyComp):
             # It's a list/set/dict comprehension or generator expression
             assert not (have_var or have_kw)
@@ -2365,7 +2664,9 @@ class SuiteDecompiler:
             self.stack.push(defn)
         else:
             # It's none of the above, so it must be a normal function call
-            func_call = PyCallFunction(func, posargs, kwargs, varargs, varkw)
+            func_call = PyCallFunction(
+                func, posargs, kwargs, varargs, varkw
+            )
             self.stack.push(func_call)
 
     # ATTR
@@ -2396,9 +2697,8 @@ class SuiteDecompiler:
         self.write("del {}[{}]", expr, sub)
 
     # CONST
-    CONST_LITERALS = {
-        Ellipsis: PyName('...')
-    }
+    CONST_LITERALS = {Ellipsis: PyName('...')}
+
     def LOAD_CONST(self, addr, consti):
         const = self.code.consts[consti]
         if const.val in self.CONST_LITERALS:
@@ -2411,7 +2711,7 @@ class SuiteDecompiler:
 
     def IMPORT_NAME(self, addr, namei):
         name = self.code.names[namei]
-        
+
         if len(self.stack._stack) > 1:
             level, fromlist = self.stack.pop(2)
         else:
@@ -2420,7 +2720,8 @@ class SuiteDecompiler:
         # special case check for import x.y.z as w syntax which uses
         # attributes and assignments and is difficult to workaround
         i = 1
-        while addr[i].opcode == LOAD_ATTR: i = i + 1
+        while addr[i].opcode == LOAD_ATTR:
+            i = i + 1
         if i > 1 and addr[i].opcode in (STORE_FAST, STORE_NAME):
             return addr[i]
         return None
@@ -2429,8 +2730,7 @@ class SuiteDecompiler:
         name = self.code.names[namei]
         self.stack.push(ImportFrom(name))
         if addr[1].opcode == ROT_TWO:
-           return addr.seek_forward(STORE_NAME)
-
+            return addr.seek_forward(STORE_NAME)
 
     def IMPORT_STAR(self, addr):
         self.POP_TOP(addr)
@@ -2450,7 +2750,13 @@ class SuiteDecompiler:
         value = self.stack.pop()
         if isinstance(value, PyConst) and value.val is None:
             if addr[1] is not None:
-                if self.code.flags.generator and addr[3] and not self.code[0].seek_forward({YIELD_FROM, YIELD_VALUE}):
+                if (
+                    self.code.flags.generator
+                    and addr[3]
+                    and not self.code[0].seek_forward(
+                        {YIELD_FROM, YIELD_VALUE}
+                    )
+                ):
                     self.write('yield')
                 else:
                     self.write("return")
@@ -2476,20 +2782,28 @@ class SuiteDecompiler:
         value = self.stack.pop()
         self.stack.push(PyYieldFrom(value))
 
-    def CALL_FUNCTION_CORE(self, func, posargs, kwargs, varargs, varkw):
+    def CALL_FUNCTION_CORE(
+        self, func, posargs, kwargs, varargs, varkw
+    ):
         if func is self.BUILD_CLASS:
             # It's a class construction
             # TODO: check the assert statement below is correct
             # assert not (have_var or have_kw)
             func, name, *parents = posargs
-            self.stack.push(ClassStatement(func, name, parents, kwargs))
+            self.stack.push(
+                ClassStatement(func, name, parents, kwargs)
+            )
         elif isinstance(func, PyComp):
             # It's a list/set/dict comprehension or generator expression
             # assert not (have_var or have_kw)
             assert len(posargs) == 1 and not kwargs
             func.set_iterable(posargs[0])
             self.stack.push(func)
-        elif posargs and isinstance(posargs, list) and isinstance(posargs[0], DecorableStatement):
+        elif (
+            posargs
+            and isinstance(posargs, list)
+            and isinstance(posargs[0], DecorableStatement)
+        ):
             # It's a decorator for a def/class statement
             assert len(posargs) == 1 and not kwargs
             defn = posargs[0]
@@ -2497,10 +2811,14 @@ class SuiteDecompiler:
             self.stack.push(defn)
         else:
             # It's none of the above, so it must be a normal function call
-            func_call = PyCallFunction(func, posargs, kwargs, varargs, varkw)
+            func_call = PyCallFunction(
+                func, posargs, kwargs, varargs, varkw
+            )
             self.stack.push(func_call)
 
-    def CALL_FUNCTION(self, addr, argc, have_var=False, have_kw=False):
+    def CALL_FUNCTION(
+        self, addr, argc, have_var=False, have_kw=False
+    ):
         if sys.version_info >= (3, 6):
             pos_argc = argc
             posargs = self.stack.pop(pos_argc)
@@ -2515,7 +2833,9 @@ class SuiteDecompiler:
             kwargs = list(zip(kwargs_iter, kwargs_iter))
             posargs = self.stack.pop(pos_argc)
             func = self.stack.pop()
-            self.CALL_FUNCTION_CORE(func, posargs, kwargs, varargs, varkw)
+            self.CALL_FUNCTION_CORE(
+                func, posargs, kwargs, varargs, varkw
+            )
 
     def CALL_FUNCTION_VAR(self, addr, argc):
         self.CALL_FUNCTION(addr, argc, have_var=True)
@@ -2527,8 +2847,12 @@ class SuiteDecompiler:
             kwarg_values = self.stack.pop(kwargc)
             posargs = self.stack.pop(argc - kwargc)
             func = self.stack.pop()
-            kwarg_dict = list(zip([PyName(k) for k in keys], kwarg_values))
-            self.CALL_FUNCTION_CORE(func, posargs, kwarg_dict, None, None)
+            kwarg_dict = list(
+                zip([PyName(k) for k in keys], kwarg_values)
+            )
+            self.CALL_FUNCTION_CORE(
+                func, posargs, kwarg_dict, None, None
+            )
         else:
             self.CALL_FUNCTION(addr, argc, have_kw=True)
 
@@ -2538,7 +2862,7 @@ class SuiteDecompiler:
             kwarg_unpacks = self.stack.pop()
 
         kwarg_dict = PyDict()
-        if isinstance(kwarg_unpacks,PyDict):
+        if isinstance(kwarg_unpacks, PyDict):
             kwarg_dict = kwarg_unpacks
             kwarg_unpacks = []
         elif isinstance(kwarg_unpacks, list):
@@ -2549,20 +2873,24 @@ class SuiteDecompiler:
         else:
             kwarg_unpacks = [kwarg_unpacks]
 
-        if any(filter(lambda kv: '.' in str(kv[0]), kwarg_dict.items)):
+        if any(
+            filter(lambda kv: '.' in str(kv[0]), kwarg_dict.items)
+        ):
             kwarg_unpacks.append(kwarg_dict)
             kwarg_dict = PyDict()
 
         posargs_unpacks = self.stack.pop()
         posargs = PyTuple([])
-        if isinstance(posargs_unpacks,PyTuple):
+        if isinstance(posargs_unpacks, PyTuple):
             posargs = posargs_unpacks
             posargs_unpacks = []
         elif isinstance(posargs_unpacks, list):
             if len(posargs_unpacks) > 0:
                 posargs = posargs_unpacks[0]
                 if isinstance(posargs, PyConst):
-                    posargs = PyTuple([PyConst(a) for a in posargs.val])
+                    posargs = PyTuple(
+                        [PyConst(a) for a in posargs.val]
+                    )
                 elif isinstance(posargs, PyAttribute):
                     posargs = PyTuple([posargs])
                 posargs_unpacks = posargs_unpacks[1:]
@@ -2570,7 +2898,13 @@ class SuiteDecompiler:
             posargs_unpacks = [posargs_unpacks]
 
         func = self.stack.pop()
-        self.CALL_FUNCTION_CORE(func, list(posargs.values), list(kwarg_dict.items), posargs_unpacks, kwarg_unpacks)
+        self.CALL_FUNCTION_CORE(
+            func,
+            list(posargs.values),
+            list(kwarg_dict.items),
+            posargs_unpacks,
+            kwarg_unpacks,
+        )
 
     def CALL_FUNCTION_VAR_KW(self, addr, argc):
         self.CALL_FUNCTION(addr, argc, have_var=True, have_kw=True)
@@ -2600,7 +2934,7 @@ class SuiteDecompiler:
         values = [self.stack.pop() for i in range(count)]
         values.reverse()
         self.stack.push(PyTuple(values))
-        
+
     def DICT_MERGE(self, addr, count):
         values = []
         for o in self.stack.pop(count):
@@ -2668,7 +3002,14 @@ class SuiteDecompiler:
             if isinstance(o, PyDict):
                 for item in reversed(o.items):
                     k, v = item
-                    d.set_item(PyConst(k.val if isinstance(k, PyConst) else k.name), v)
+                    d.set_item(
+                        PyConst(
+                            k.val
+                            if isinstance(k, PyConst)
+                            else k.name
+                        ),
+                        v,
+                    )
             else:
                 d.items.append((PyStarred(PyStarred(o)),))
         d.items = list(reversed(d.items))
@@ -2702,6 +3043,7 @@ class SuiteDecompiler:
         value, key = self.stack.pop(2)
         self.stack.push(PyKeyValue(key, value))
         self.POP_TOP(addr)
+
     """
     def LIST_TO_TUPLE(self, addr):
       list_obj = self.stack.pop()
@@ -2758,44 +3100,48 @@ class SuiteDecompiler:
 
     # and operator
 """
+
     def LIST_TO_TUPLE(self, addr):
         list_value = self.stack.pop()
         values = list_value.values
         self.stack.push(PyTuple(values))
+
     def LIST_EXTEND(self, addr, i):
         items = self.stack.pop(1)
         item2 = self.stack.pop(1)
         if hasattr(item2[0], "expr"):
-          exprs = [item2[0].expr]
+            exprs = [item2[0].expr]
         else:
-          exprs = item2[0].values
+            exprs = item2[0].values
         new_list = PyList([*exprs, PyStarred(items[0])])
         self.stack.push(new_list)
-        
+
     def SET_UPDATE(self, addr, i):
         self.POP_TOP(addr)
-        pass #self.POP_TOP(addr)
+        pass  # self.POP_TOP(addr)
+
     def DICT_UPDATE(self, addr, i):
         items = self.stack.pop(1)
         self.stack.push(items[0])
         self.POP_TOP(addr)
+
     def DICT_MERGE(self, addr, i):
         items = self.stack.pop(1)
         item2 = self.stack.pop(1)
         new_list = [*item2[0].items] + [items[0]]
         item = None
         if len(new_list) == 1:
-          item = new_list[0]
+            item = new_list[0]
         else:
-          item = PyList(new_list)
+            item = PyList(new_list)
         self.stack.push(item)
-        
-        
 
     def JUMP_IF_FALSE_OR_POP(self, addr: Address, target):
         end_addr = addr.jump()
         truthiness = not addr.seek_back_statement(POP_JUMP_IF_TRUE)
-        self.push_popjump(truthiness, end_addr, self.stack.pop(), addr)
+        self.push_popjump(
+            truthiness, end_addr, self.stack.pop(), addr
+        )
         left = self.pop_popjump()
         if end_addr.opcode == ROT_TWO:
             opc, arg = end_addr[-1]
@@ -2806,7 +3152,9 @@ class SuiteDecompiler:
                 d = SuiteDecompiler(addr[1], end_addr, self.stack)
                 d.run()
                 right = self.stack.pop()
-                if isinstance(right, PyCompare) and right.extends(left):
+                if isinstance(right, PyCompare) and right.extends(
+                    left
+                ):
                     py_and = left.chain(right)
                 else:
                     py_and = PyBooleanAnd(left, right)
@@ -2852,13 +3200,18 @@ class SuiteDecompiler:
     # If-else statements/expressions and related structures
     #
 
-    def POP_JUMP_IF(self, addr: Address, target: int, truthiness: bool) -> Union[Address, None]:
+    def POP_JUMP_IF(
+        self, addr: Address, target: int, truthiness: bool
+    ) -> Union[Address, None]:
         jump_addr = addr.jump()
 
         last_loop = addr.seek_back(SETUP_LOOP)
         last_loop = last_loop or addr
         in_loop = last_loop and last_loop.jump() > addr
-        end_of_loop = jump_addr.opcode == FOR_ITER or jump_addr[-1].opcode == SETUP_LOOP
+        end_of_loop = (
+            jump_addr.opcode == FOR_ITER
+            or jump_addr[-1].opcode == SETUP_LOOP
+        )
         if jump_addr.opcode == FOR_ITER:
             # We are in a for-loop with nothing after the if-suite
             # But take care: for-loops in generator expression do
@@ -2878,19 +3231,25 @@ class SuiteDecompiler:
         # chained compare
         # ex:
         # if x <= y <= z:
-        if addr[-3] and \
-                addr[-1].opcode == COMPARE_OP and \
-                addr[-2].opcode == ROT_THREE and \
-                addr[-3].opcode == DUP_TOP:
+        if (
+            addr[-3]
+            and addr[-1].opcode == COMPARE_OP
+            and addr[-2].opcode == ROT_THREE
+            and addr[-3].opcode == DUP_TOP
+        ):
             if self.popjump_stack:
                 c = self.pop_popjump()
                 c = c.chain(cond)
                 self.push_popjump(not truthiness, jump_addr, c, addr)
             else:
-                self.push_popjump(not truthiness, jump_addr, cond, addr)
+                self.push_popjump(
+                    not truthiness, jump_addr, cond, addr
+                )
             return
 
-        is_chained = isinstance(cond, PyCompare) and addr.seek_back(ROT_THREE, addr.seek_back(stmt_opcodes))
+        is_chained = isinstance(cond, PyCompare) and addr.seek_back(
+            ROT_THREE, addr.seek_back(stmt_opcodes)
+        )
         if is_chained and self.popjump_stack:
             pj = self.pop_popjump()
             if isinstance(pj, PyCompare):
@@ -2902,13 +3261,17 @@ class SuiteDecompiler:
             if for_iter:
                 end_of_for = for_iter.jump()
                 if end_of_for.addr > addr.addr:
-                    gen = jump_addr.seek_forward((YIELD_VALUE, LIST_APPEND), end_of_for)
+                    gen = jump_addr.seek_forward(
+                        (YIELD_VALUE, LIST_APPEND), end_of_for
+                    )
                     if gen:
                         if not truthiness:
                             truthiness = not truthiness
                             if truthiness:
                                 cond = PyNot(cond)
-                        self.push_popjump(truthiness, jump_addr, cond, addr)
+                        self.push_popjump(
+                            truthiness, jump_addr, cond, addr
+                        )
                         return None
 
             self.push_popjump(truthiness, jump_addr, cond, addr)
@@ -2916,16 +3279,22 @@ class SuiteDecompiler:
             if jump_addr.seek_forward(MAP_ADD):
                 return None
 
-            if addr.code.name=='<lambda>':
+            if addr.code.name == '<lambda>':
                 return None
             # Generator
             if jump_addr.seek_forward(YIELD_VALUE):
                 return None
 
-            if jump_addr.seek_back(JUMP_IF_TRUE_OR_POP,jump_addr[-2]):
+            if jump_addr.seek_back(
+                JUMP_IF_TRUE_OR_POP, jump_addr[-2]
+            ):
                 return None
             # Generator
-            if jump_addr.opcode != END_FINALLY and jump_addr[1] and jump_addr[1].opcode == JUMP_ABSOLUTE:
+            if (
+                jump_addr.opcode != END_FINALLY
+                and jump_addr[1]
+                and jump_addr[1].opcode == JUMP_ABSOLUTE
+            ):
                 return None
 
             next_addr = addr[1]
@@ -2934,12 +3303,21 @@ class SuiteDecompiler:
                     break
                 if next_addr.opcode in pop_jump_if_opcodes:
                     next_jump_addr = next_addr.jump()
-                    if next_jump_addr > jump_addr or (next_jump_addr == jump_addr and jump_addr[-1].opcode in else_jump_opcodes):
+                    if next_jump_addr > jump_addr or (
+                        next_jump_addr == jump_addr
+                        and jump_addr[-1].opcode in else_jump_opcodes
+                    ):
                         return None
 
-                if next_addr.opcode in (JUMP_IF_FALSE_OR_POP, JUMP_IF_TRUE_OR_POP):
+                if next_addr.opcode in (
+                    JUMP_IF_FALSE_OR_POP,
+                    JUMP_IF_TRUE_OR_POP,
+                ):
                     next_jump_addr = next_addr.jump()
-                    if next_jump_addr > jump_addr or (next_jump_addr == jump_addr and jump_addr[-1].opcode in else_jump_opcodes):
+                    if next_jump_addr > jump_addr or (
+                        next_jump_addr == jump_addr
+                        and jump_addr[-1].opcode in else_jump_opcodes
+                    ):
                         return None
                 next_addr = next_addr[1]
             # if there are no nested conditionals and no else clause, write the true portion and jump ahead to the end of the conditional
@@ -2958,7 +3336,12 @@ class SuiteDecompiler:
         end_true = jump_addr[-1]
         if truthiness:
             last_pj = addr.seek_back(pop_jump_if_opcodes)
-            if last_pj and last_pj.arg == addr.arg and isinstance(cond, PyBooleanAnd) or isinstance(cond, PyBooleanOr):
+            if (
+                last_pj
+                and last_pj.arg == addr.arg
+                and isinstance(cond, PyBooleanAnd)
+                or isinstance(cond, PyBooleanOr)
+            ):
                 if last_pj.opcode != addr.opcode:
                     cond.right = PyNot(cond.right)
             else:
@@ -2966,25 +3349,49 @@ class SuiteDecompiler:
 
         if end_true.opcode == RETURN_VALUE:
             end_false = jump_addr.seek_forward(RETURN_VALUE)
-            if end_false and end_false[2] and end_false[2].opcode == RETURN_VALUE:
+            if (
+                end_false
+                and end_false[2]
+                and end_false[2].opcode == RETURN_VALUE
+            ):
                 d_true = SuiteDecompiler(addr[1], end_true[1])
                 d_true.run()
                 d_false = SuiteDecompiler(jump_addr, end_false[1])
                 d_false.run()
-                self.suite.add_statement(IfStatement(cond, d_true.suite, d_false.suite))
+                self.suite.add_statement(
+                    IfStatement(cond, d_true.suite, d_false.suite)
+                )
 
                 return end_false[1]
 
-        if end_true.opcode == RAISE_VARARGS and addr[1].opcode == LOAD_GLOBAL:
+        if (
+            end_true.opcode == RAISE_VARARGS
+            and addr[1].opcode == LOAD_GLOBAL
+        ):
             assert_addr = addr[1]
-            if assert_addr.code.names[assert_addr.arg].name == 'AssertionError':
-                cond = cond.operand if isinstance(cond, PyNot) else PyNot(cond)
+            if (
+                assert_addr.code.names[assert_addr.arg].name
+                == 'AssertionError'
+            ):
+                cond = (
+                    cond.operand
+                    if isinstance(cond, PyNot)
+                    else PyNot(cond)
+                )
                 d_true = SuiteDecompiler(addr[1], end_true)
                 d_true.run()
                 assert_pop = d_true.stack.pop()
-                assert_args = assert_pop.args if isinstance(assert_pop, PyCallFunction) else []
-                assert_arg_str = ', '.join(map(str,[cond, *assert_args]))
-                self.suite.add_statement(SimpleStatement(f'assert {assert_arg_str}'))
+                assert_args = (
+                    assert_pop.args
+                    if isinstance(assert_pop, PyCallFunction)
+                    else []
+                )
+                assert_arg_str = ', '.join(
+                    map(str, [cond, *assert_args])
+                )
+                self.suite.add_statement(
+                    SimpleStatement(f'assert {assert_arg_str}')
+                )
                 return end_true[1]
         # - If the true clause ends in return, make sure it's included
         # - If the true clause ends in RAISE_VARARGS, then it's an
@@ -2993,7 +3400,9 @@ class SuiteDecompiler:
         if end_true.opcode in (RETURN_VALUE, RAISE_VARARGS, POP_TOP):
             d_true = SuiteDecompiler(addr[1], end_true[1])
             d_true.run()
-            self.suite.add_statement(IfStatement(cond, d_true.suite, Suite()))
+            self.suite.add_statement(
+                IfStatement(cond, d_true.suite, Suite())
+            )
             return jump_addr
         if is_chained and addr[1].opcode == JUMP_ABSOLUTE:
             end_true = end_true[-2]
@@ -3003,12 +3412,16 @@ class SuiteDecompiler:
         if addr[1].opcode == JUMP_ABSOLUTE:
             j = addr[1].jump()
             if last_loop != None and len(last_loop) > 1:
-               l = last_loop[1]
+                l = last_loop[1]
             while l != None and l.opcode not in stmt_opcodes:
                 if l == j:
-                    d_true.suite.add_statement(SimpleStatement('continue'))
+                    d_true.suite.add_statement(
+                        SimpleStatement('continue')
+                    )
 
-                    self.suite.add_statement(IfStatement(cond, d_true.suite, None))
+                    self.suite.add_statement(
+                        IfStatement(cond, d_true.suite, None)
+                    )
                     return addr[2]
                 l = l[1]
 
@@ -3068,48 +3481,54 @@ class SuiteDecompiler:
 
     def POP_JUMP_IF_TRUE(self, addr, target):
         return self.POP_JUMP_IF(addr, target, truthiness=True)
-    
+
     def addr2list(self, addr):
         import attrdict, inspect
-        if not(addr[-1] is None):
-          return addr
-       
-        a = dict((idx, addr.code[addr.index + idx]) \
-          for idx in range(-5, len(list(addr.code))-addr.index))
+
+        if not (addr[-1] is None):
+            return addr
+
+        a = dict(
+            (idx, addr.code[addr.index + idx])
+            for idx in range(-5, len(list(addr.code)) - addr.index)
+        )
         [a.__setitem__(*pair) for pair in inspect.getmembers(addr)]
         wa = attrdict()
         wa.update(a)
         if a[-1] is None:
-          wa.update({-1: Address(addr.code, addr.index - 1)})
+            wa.update({-1: Address(addr.code, addr.index - 1)})
         return wa
-        
+
     def wrap_addr(self, addr):
         if not isinstance(addr, Address):
             return addr
         if addr[-1] is None:
             return self.addr2list(addr)
         return addr
-        
+
     def JUMP_ABSOLUTE(self, addr, target):
         import operator, sys
-        
+
         if 'debug' in globals():
-          print("*** JUMP ABSOLUTE ***", addr)
-          globals()['debug'] += [(
-            self.JUMP_ABSOLUTE, (addr, target), sys._current_frames())]
-          
+            print("*** JUMP ABSOLUTE ***", addr)
+            globals()['debug'] += [
+                (
+                    self.JUMP_ABSOLUTE,
+                    (addr, target),
+                    sys._current_frames(),
+                )
+            ]
+
         # return addr.jump()
 
         # TODO: print out continue if not final jump
         jump_addr = addr.jump()
- 
+
         if self.wrap_addr(jump_addr)[-1].opcode == SETUP_LOOP:
             end_addr = jump_addr + self.wrap_addr(jump_addr)[-1].arg
-            
+
             last_jump = self.scan_for_final_jump(
-            
-                jump_addr,
-                self.wrap_addr(end_addr)[-1]
+                jump_addr, self.wrap_addr(end_addr)[-1]
             )
             if last_jump != addr:
                 self.suite.add_statement(SimpleStatement('continue'))
@@ -3118,10 +3537,10 @@ class SuiteDecompiler:
     #
     # For loops
     #
-    
+
     def GET_ITER(self, addr):
         pass
-    
+
     def FOR_ITER(self, addr: Address, delta):
         if addr[-1] and addr[-1].opcode == RETURN_VALUE:
             # Dead code
@@ -3171,10 +3590,15 @@ class SuiteDecompiler:
         paramobjs = {}
         paramcount = (argc >> 16) & 0x7FFF
         if paramcount:
-            paramobjs = dict(zip(self.stack.pop().val, self.stack.pop(paramcount - 1)))
-        # default argument objects in positional order 
+            paramobjs = dict(
+                zip(
+                    self.stack.pop().val,
+                    self.stack.pop(paramcount - 1),
+                )
+            )
+        # default argument objects in positional order
         defaults = self.stack.pop(argc & 0xFF)
-        # pairs of name and default argument, with the name just below the object on the stack, for keyword-only parameters 
+        # pairs of name and default argument, with the name just below the object on the stack, for keyword-only parameters
         kwdefaults = {}
         for i in range((argc >> 8) & 0xFF):
             k, v = self.stack.pop(2)
@@ -3185,7 +3609,9 @@ class SuiteDecompiler:
             else:
                 kwdefaults[str(k)] = v
         func_maker = code_map.get(code.name, DefStatement)
-        self.stack.push(func_maker(code, defaults, kwdefaults, closure, paramobjs))
+        self.stack.push(
+            func_maker(code, defaults, kwdefaults, closure, paramobjs)
+        )
 
     def MAKE_FUNCTION_NEW(self, addr, argc, is_closure=False):
         testType = self.stack.pop().val
@@ -3202,18 +3628,43 @@ class SuiteDecompiler:
         if argc & 4:
             annotations = self.stack.pop()
             if isinstance(annotations, PyDict):
-                annotations = {str(k[0].val).replace('\'', ''): str(k[1]) for k in annotations.items}
+                annotations = {
+                    str(k[0].val).replace('\'', ''): str(k[1])
+                    for k in annotations.items
+                }
         if argc & 2:
             kwdefaults = self.stack.pop()
             if isinstance(kwdefaults, PyDict):
-                kwdefaults = {str(k[0].val): str(k[1] if isinstance(k[1], PyExpr) else PyConst(k[1])) for k in
-                              kwdefaults.items}
+                kwdefaults = {
+                    str(k[0].val): str(
+                        k[1]
+                        if isinstance(k[1], PyExpr)
+                        else PyConst(k[1])
+                    )
+                    for k in kwdefaults.items
+                }
             if not kwdefaults:
                 kwdefaults = {}
         if argc & 1:
-            defaults = list(map(lambda x: str(x if isinstance(x, PyExpr) else PyConst(x)), self.stack.pop()))
+            defaults = list(
+                map(
+                    lambda x: str(
+                        x if isinstance(x, PyExpr) else PyConst(x)
+                    ),
+                    self.stack.pop(),
+                )
+            )
         func_maker = code_map.get(code.name, DefStatement)
-        self.stack.push(func_maker(code, defaults, kwdefaults, closure, annotations, annotations))
+        self.stack.push(
+            func_maker(
+                code,
+                defaults,
+                kwdefaults,
+                closure,
+                annotations,
+                annotations,
+            )
+        )
 
     def MAKE_FUNCTION(self, addr, argc, is_closure=False):
         if sys.version_info < (3, 6):
@@ -3336,9 +3787,12 @@ class SuiteDecompiler:
         self.suite.add_statement(for_stmt)
         new_end = new_end.seek_forward(POP_BLOCK)
         return new_end
-        
+
+
 SuiteDecompiler.RESUME = SuiteDecompiler.__dict__["CONTINUE_LOOP"]
-SuiteDecompiler.CALL_NO_KW = SuiteDecompiler.__dict__["CALL_FUNCTION_VAR"]
+SuiteDecompiler.CALL_NO_KW = SuiteDecompiler.__dict__[
+    "CALL_FUNCTION_VAR"
+]
 
 
 def make_dynamic_instr(cls):
@@ -3361,7 +3815,9 @@ for op, name, ptn, prec, inplace_ptn in binary_ops:
     tp_name = 'Py' + name
     tp = globals().get(tp_name, None)
     if tp is None:
-        tp = type(tp_name, (PyBinaryOp,), dict(pattern=ptn, precedence=prec))
+        tp = type(
+            tp_name, (PyBinaryOp,), dict(pattern=ptn, precedence=prec)
+        )
         globals()[tp_name] = tp
 
     setattr(SuiteDecompiler, 'BINARY_' + op, make_dynamic_instr(tp))
@@ -3375,44 +3831,41 @@ for op, name, ptn, prec, inplace_ptn in binary_ops:
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) < 2:
-        print('USAGE: {} <filename.pyc> [START [END=-1]]'.format(sys.argv[0]))
+        print(
+            'USAGE: {} <filename.pyc> [START [END=-1]]'.format(
+                sys.argv[0]
+            )
+        )
         sys.exit(1)
-    
+
     start = 0
     end = -1
     if len(sys.argv) > 2:
         start = int(sys.argv[2])
     if len(sys.argv) > 3:
-        end = int(sys.argv[3])    
+        end = int(sys.argv[3])
     with open(sys.argv[1], "rb") as stream:
         code_obj = read_code(stream)
         code = Code(code_obj)
         dc = SuiteDecompiler(
-          code.address(
-            code.instr_list[start][0]
-          ),
-          code.address(
-            code.instr_list[end][0]
-          )
+            code.address(code.instr_list[start][0]),
+            code.address(code.instr_list[end][0]),
         )
         try:
             dc.run()
         except Exception as e:
-            print(
-              "Exception during dc.run():",
-              e,
-              file=sys.stderr
-            )
+            print("Exception during dc.run():", e, file=sys.stderr)
 
         s = IndentString()
         try:
             dc.suite.display(s)
         except Exception as e:
             print(
-              "Exception during dc.suite.display():",
-              e,
-              file=sys.stderr
+                "Exception during dc.suite.display():",
+                e,
+                file=sys.stderr,
             )
 
         print("\x0a".join(s.lines))

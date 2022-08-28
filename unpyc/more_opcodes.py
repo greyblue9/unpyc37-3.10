@@ -2,8 +2,34 @@
 opcode module - potentially shared between dis and other modules which
 operate on bytecodes (e.g. peephole optimizers).
 """
-__all__ = ['cmp_op', 'hasconst', 'hasname', 'hasjrel', 'hasjabs', 'haslocal', 'hascompare', 'hasfree', 'opname', 'opmap', 'HAVE_ARGUMENT', 'EXTENDED_ARG']
-cmp_op = ('<', '<=', '==', '!=', '>', '>=', 'in', 'not in', 'is', 'is not', 'exception match', 'BAD')
+__all__ = [
+    'cmp_op',
+    'hasconst',
+    'hasname',
+    'hasjrel',
+    'hasjabs',
+    'haslocal',
+    'hascompare',
+    'hasfree',
+    'opname',
+    'opmap',
+    'HAVE_ARGUMENT',
+    'EXTENDED_ARG',
+]
+cmp_op = (
+    '<',
+    '<=',
+    '==',
+    '!=',
+    '>',
+    '>=',
+    'in',
+    'not in',
+    'is',
+    'is not',
+    'exception match',
+    'BAD',
+)
 hasconst = []
 hasname = []
 hasjrel = []
@@ -17,21 +43,27 @@ for op in range(256):
     opname[op] = '<%r>' % (op,)
 del op
 
+
 def def_op(name, op):
     opname[op] = name
     opmap[name] = op
+
 
 def name_op(name, op):
     def_op(name, op)
     hasname.append(op)
 
+
 def jrel_op(name, op):
     def_op(name, op)
     hasjrel.append(op)
 
+
 def jabs_op(name, op):
     def_op(name, op)
     hasjabs.append(op)
+
+
 def_op('STOP_CODE', 0)
 def_op('POP_TOP', 1)
 def_op('ROT_TWO', 2)
