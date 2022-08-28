@@ -200,8 +200,8 @@ DELETE_GLOBAL = 98
 DUP_TOPX = 99
 
 def set_trace(trace_function):
-    global current_trace
-    current_trace = trace_function if trace_function else _trace
+  global current_trace
+  current_trace = trace_function or _trace
 
 
 def get_trace():
@@ -371,11 +371,8 @@ class IndentPrint(Indent):
 
 class IndentString(Indent):
     def __init__(self, indent_level=0, indent_step=4, lines=None):
-        Indent.__init__(self, indent_level, indent_step)
-        if lines is None:
-            self.lines = []
-        else:
-            self.lines = lines
+      Indent.__init__(self, indent_level, indent_step)
+      self.lines = [] if lines is None else lines
 
     def __add__(self, indent_increase):
         return type(self)(self.level + indent_increase, self.step, self.lines)
@@ -424,13 +421,11 @@ class Stack:
         return val
 
     def pop(self, count=None):
-        if count is None:
-            val = self.pop1()
-            return val
-        else:
-            vals = [self.pop1() for i in range(count)]
-            vals.reverse()
-            return vals
+      if count is None:
+        return self.pop1()
+      vals = [self.pop1() for _ in range(count)]
+      vals.reverse()
+      return vals
 
     def push(self, *args):
         for val in args:
@@ -438,10 +433,7 @@ class Stack:
             self._stack.append(val)
 
     def peek(self, count=None):
-        if count is None:
-            return self._stack[-1]
-        else:
-            return self._stack[-count:]
+      return self._stack[-1] if count is None else self._stack[-count:]
 
 
 def code_walker(code):
@@ -580,11 +572,10 @@ class Code:
         return i < len(self.code_obj.co_cellvars)
 
     def find_jumps(self):
-        for addr in self:
-            opcode, arg = addr
-            jt = addr.jump()
-            if jt:
-                self.jump_targets.append(jt)
+      for addr in self:
+        opcode, arg = addr
+        if jt := addr.jump():
+          self.jump_targets.append(jt)
 
     def find_else(self):
         jumps = {}
@@ -618,27 +609,26 @@ class Code:
         self.else_jumps = set(jumps.values())
 
     def get_suite(self, include_declarations=True, look_for_docstring=False) -> Suite:
-        dec = SuiteDecompiler(self[0])
-        dec.run()
-        first_stmt = dec.suite and dec.suite[0]
-        # Change __doc__ = "docstring" to "docstring"
-        if look_for_docstring and isinstance(first_stmt, AssignStatement):
-            chain = first_stmt.chain
-            if len(chain) == 2 and str(chain[0]) == "__doc__":
-                dec.suite[0] = DocString(first_stmt.chain[1].val)
-        if include_declarations and (self.globals or self.nonlocals):
-            suite = Suite()
-            if self.globals:
-                stmt = "global " + ", ".join(map(str, self.globals))
-                suite.add_statement(SimpleStatement(stmt))
-            if self.nonlocals:
-                stmt = "nonlocal " + ", ".join(map(str, self.nonlocals))
-                suite.add_statement(SimpleStatement(stmt))
-            for stmt in dec.suite:
-                suite.add_statement(stmt)
-            return suite
-        else:
-            return dec.suite
+      dec = SuiteDecompiler(self[0])
+      dec.run()
+      first_stmt = dec.suite and dec.suite[0]
+      # Change __doc__ = "docstring" to "docstring"
+      if look_for_docstring and isinstance(first_stmt, AssignStatement):
+          chain = first_stmt.chain
+          if len(chain) == 2 and str(chain[0]) == "__doc__":
+              dec.suite[0] = DocString(first_stmt.chain[1].val)
+      if not include_declarations or not self.globals and not self.nonlocals:
+        return dec.suite
+      suite = Suite()
+      if self.globals:
+          stmt = "global " + ", ".join(map(str, self.globals))
+          suite.add_statement(SimpleStatement(stmt))
+      if self.nonlocals:
+          stmt = "nonlocal " + ", ".join(map(str, self.nonlocals))
+          suite.add_statement(SimpleStatement(stmt))
+      for stmt in dec.suite:
+          suite.add_statement(stmt)
+      return suite
 
     def declare_global(self, name):
         """
@@ -686,16 +676,16 @@ class Address:
                                  and self.code == other.code and self.index < other.index)
 
     def __str__(self):
-        mark = "* " if self in self.code.else_jumps else "  "
-        jump = self.jump()
-        jt = '>>' if self.is_jump_target else '  '
-        arg = self.arg or "  "
-        jdest = '\t(to {})'.format(jump.addr) if jump and jump.addr != self.arg else ''
-        val = ''
-        op = opname[self.opcode].ljust(18, ' ')
-        try:
+      mark = "* " if self in self.code.else_jumps else "  "
+      jump = self.jump()
+      jt = '>>' if self.is_jump_target else '  '
+      arg = self.arg or "  "
+      jdest = f'\t(to {jump.addr})' if jump and jump.addr != self.arg else ''
+      val = ''
+      op = opname[self.opcode].ljust(18, ' ')
+      try:
 
-            val = self.code.globals[self.arg] and self.arg + 1 < len(self.code.globals) if 'GLOBAL' in op else \
+        val = self.code.globals[self.arg] and self.arg + 1 < len(self.code.globals) if 'GLOBAL' in op else \
                 self.code.names[self.arg] if 'ATTR' in op else \
                     self.code.names[self.arg] if 'NAME' in op else \
                         self.code.names[self.arg] if 'LOAD_METHOD' in op else \
@@ -703,20 +693,12 @@ class Address:
                                 self.code.varnames[self.arg] if 'FAST' in op else \
                                     self.code.derefnames[self.arg] if 'DEREF' in op else \
                                         cmp_op[self.arg] if 'COMPARE' in op else ''
-            if val != '':
-                val = '\t({})'.format(val)
-        except:
-            pass
+        if val != '':
+          val = f'\t({val})'
+      except:
+          pass
 
-        return "{}{}\t{}\t{}\t{}{}{}".format(
-            jt,
-            mark,
-            self.addr,
-            op,
-            arg,
-            jdest,
-            val
-        )
+      return f"{jt}{mark}\t{self.addr}\t{op}\t{arg}{jdest}{val}"
 
     def __add__(self, delta):
         return self.code.address(self.addr + delta)
@@ -795,10 +777,7 @@ class AwaitableMixin:
 
 class PyExpr:
     def wrap(self, condition=True):
-        if condition:
-            return "({})".format(self)
-        else:
-            return str(self)
+      return f"({self})" if condition else str(self)
 
     def store(self, dec, dest):
         chain = dec.assignment_chain
@@ -815,11 +794,8 @@ class PyExpr:
 class PyConst(PyExpr):
 
     def __init__(self, val):
-        self.val = val
-        if isinstance(val, int):
-            self.precedence=14
-        else:
-            self.precedence = 100
+      self.val = val
+      self.precedence = 14 if isinstance(val, int) else 100
 
     def __str__(self):
         return repr(self.val)
@@ -869,14 +845,11 @@ class PyTuple(PyExpr):
         self.values = values
 
     def __str__(self):
-        if not self.values:
-            return "()"
-        valstr = [val.wrap(val.precedence <= self.precedence)
-                  for val in self.values]
-        if len(valstr) == 1:
-            return '(' + valstr[0] + "," + ')'
-        else:
-            return '(' + ", ".join(valstr) + ')'
+      if not self.values:
+          return "()"
+      valstr = [val.wrap(val.precedence <= self.precedence)
+                for val in self.values]
+      return f'({valstr[0]},)' if len(valstr) == 1 else '(' + ", ".join(valstr) + ')'
 
     def __iter__(self):
         return iter(self.values)
@@ -892,9 +865,9 @@ class PyList(PyExpr):
         self.values = values
 
     def __str__(self):
-        valstr = ", ".join(val.wrap(val.precedence <= 0)
-                           for val in self.values)
-        return "[{}]".format(valstr)
+      valstr = ", ".join(val.wrap(val.precedence <= 0)
+                         for val in self.values)
+      return f"[{valstr}]"
 
     def __iter__(self):
         return iter(self.values)
@@ -1031,22 +1004,22 @@ class PySlice(PyExpr):
     precedence = 1
 
     def __init__(self, args):
-        assert len(args) in (2, 3)
-        if len(args) == 2:
-            self.start, self.stop = args
-            self.step = None
-        else:
-            self.start, self.stop, self.step = args
-        if self.start == PyConst(None):
-            self.start = ""
-        if self.stop == PyConst(None):
-            self.stop = ""
+      assert len(args) in {2, 3}
+      if len(args) == 2:
+          self.start, self.stop = args
+          self.step = None
+      else:
+          self.start, self.stop, self.step = args
+      if self.start == PyConst(None):
+          self.start = ""
+      if self.stop == PyConst(None):
+          self.stop = ""
 
     def __str__(self):
-        if self.step is None:
-            return "{}:{}".format(self.start, self.stop)
-        else:
-            return "{}:{}:{}".format(self.start, self.stop, self.step)
+      if self.step is None:
+        return f"{self.start}:{self.stop}"
+      else:
+        return f"{self.start}:{self.stop}:{self.step}"
 
 
 class PyCompare(PyExpr):
@@ -1060,10 +1033,8 @@ class PyCompare(PyExpr):
                         for i, x in enumerate(self.complist))
 
     def extends(self, other):
-        if not isinstance(other, PyCompare):
-            return False
-        else:
-            return self.complist[0] == other.complist[-1]
+      return (self.complist[0] == other.complist[-1] if isinstance(
+          other, PyCompare) else False)
 
     def chain(self, other):
         return PyCompare(self.complist + other.complist[1:])
@@ -1088,11 +1059,11 @@ class PyIfElse(PyExpr):
         self.false_expr = false_expr
 
     def __str__(self):
-        p = self.precedence
-        cond_str = self.cond.wrap(self.cond.precedence <= p)
-        true_str = self.true_expr.wrap(self.cond.precedence <= p)
-        false_str = self.false_expr.wrap(self.cond.precedence < p)
-        return "{} if {} else {}".format(true_str, cond_str, false_str)
+      p = self.precedence
+      cond_str = self.cond.wrap(self.cond.precedence <= p)
+      true_str = self.true_expr.wrap(self.cond.precedence <= p)
+      false_str = self.false_expr.wrap(self.cond.precedence < p)
+      return f"{true_str} if {cond_str} else {false_str}"
 
 
 class PyAttribute(PyExpr):
@@ -1103,14 +1074,14 @@ class PyAttribute(PyExpr):
         self.attrname = attrname
 
     def __str__(self):
-        expr_str = self.expr.wrap(self.expr.precedence < self.precedence)
-        attrname = self.attrname
+      expr_str = self.expr.wrap(self.expr.precedence < self.precedence)
+      attrname = self.attrname
 
-        if isinstance(self.expr, PyName) and self.expr.name == 'self':
-            __ = attrname.name.find('__')
-            if __ > 0:
-                attrname = PyName(self.attrname.name[__:])
-        return "{}.{}".format(expr_str, attrname)
+      if isinstance(self.expr, PyName) and self.expr.name == 'self':
+          __ = attrname.name.find('__')
+          if __ > 0:
+              attrname = PyName(self.attrname.name[__:])
+      return f"{expr_str}.{attrname}"
 
 
 class PyCallFunction(PyExpr, AwaitableMixin):
@@ -1125,83 +1096,80 @@ class PyCallFunction(PyExpr, AwaitableMixin):
         self.varkw = varkw if not varkw or isinstance(varkw,Iterable) else {varkw}
 
     def __str__(self):
-        funcstr = self.func.wrap(self.func.precedence < self.precedence)
-        if hasattr(self.args, '__iter__') and len(self.args) == 1 and not (self.kwargs or self.varargs
-                                                                           or self.varkw):
-            arg = self.args[0]
-            if isinstance(arg, PyGenExpr):
+      funcstr = self.func.wrap(self.func.precedence < self.precedence)
+      if (hasattr(self.args, '__iter__') and len(self.args) == 1
+          and not self.kwargs and not self.varargs and not self.varkw):
+        arg = self.args[0]
+        if isinstance(arg, PyGenExpr):
                 # Only one pair of brackets arount a single arg genexpr
-                return "{}{}".format(funcstr, arg)
-        args = [x.wrap(x.precedence <= 0) for x in self.args]
-        if self.varargs is not None:
-            for varargs in self.varargs:
-                args.append("*{}".format(varargs))
-        args.extend("{}={}".format(str(k).replace('\'', ''), v.wrap(v.precedence <= 0))
-                    for k, v in self.kwargs)
-        if self.varkw is not None:
-            for varkw in self.varkw:
-                args.append("**{}".format(varkw))
-        return "{}{}({})".format(self.await_prefix, funcstr, ", ".join(args))
+          return f"{funcstr}{arg}"
+      args = [x.wrap(x.precedence <= 0) for x in self.args]
+      if self.varargs is not None:
+        args.extend(f"*{varargs}" for varargs in self.varargs)
+      args.extend("{}={}".format(str(k).replace('\'', ''), v.wrap(v.precedence <= 0))
+                  for k, v in self.kwargs)
+      if self.varkw is not None:
+        args.extend(f"**{varkw}" for varkw in self.varkw)
+      return f'{self.await_prefix}{funcstr}({", ".join(args)})'
 
 
 class FunctionDefinition:
     def __init__(self, code: Code, defaults, kwdefaults, closure, paramobjs=None, annotations=None):
-        self.code = code
-        self.defaults = defaults
-        self.kwdefaults = kwdefaults
-        self.closure = closure
-        self.paramobjs = paramobjs if paramobjs else {}
-        self.annotations = annotations if annotations else []
+      self.code = code
+      self.defaults = defaults
+      self.kwdefaults = kwdefaults
+      self.closure = closure
+      self.paramobjs = paramobjs or {}
+      self.annotations = annotations or []
 
     def is_coroutine(self):
         return self.code.code_obj.co_flags & 0x100
 
     def getparams(self):
-        code_obj = self.code.code_obj
-        l = code_obj.co_argcount
-        params = []
-        for name in code_obj.co_varnames[:l]:
-            if name in self.paramobjs:
-                params.append('{}:{}'.format(name, str(self.paramobjs[name])))
-            else:
-                params.append(name)
-        if self.defaults:
-            for i, arg in enumerate(reversed(self.defaults)):
-                name = params[-i - 1]
-                if name in self.paramobjs:
-                    params[-i - 1] = "{}:{}={}".format(name, str(self.paramobjs[name]), arg)
-                else:
-                    params[-i - 1] = "{}={}".format(name, arg)
-        kwcount = code_obj.co_kwonlyargcount
-        kwparams = []
-        if kwcount:
-            for i in range(kwcount):
-                name = code_obj.co_varnames[l + i]
-                if name in self.kwdefaults and name in self.paramobjs:
-                    kwparams.append("{}:{}={}".format(name, self.paramobjs[name], self.kwdefaults[name]))
-                elif name in self.kwdefaults:
-                    kwparams.append("{}={}".format(name, self.kwdefaults[name]))
-                else:
-                    kwparams.append(name)
-            l += kwcount
-        if code_obj.co_flags & VARARGS:
-            name = code_obj.co_varnames[l]
-            if name in self.paramobjs:
-                params.append(f'*{name}:{str(self.paramobjs[name])}')
-            else:
-                params.append(f'*{name}')
-            l += 1
-        elif kwparams:
-            params.append("*")
-        params.extend(kwparams)
-        if code_obj.co_flags & VARKEYWORDS:
-            name = code_obj.co_varnames[l]
-            if name in self.paramobjs:
-                params.append(f'**{name}:{str(self.paramobjs[name])}')
-            else:
-                params.append(f'**{name}')
+      code_obj = self.code.code_obj
+      l = code_obj.co_argcount
+      params = []
+      for name in code_obj.co_varnames[:l]:
+        if name in self.paramobjs:
+          params.append(f'{name}:{str(self.paramobjs[name])}')
+        else:
+          params.append(name)
+      if self.defaults:
+        for i, arg in enumerate(reversed(self.defaults)):
+          name = params[-i - 1]
+          if name in self.paramobjs:
+            params[-i - 1] = f"{name}:{str(self.paramobjs[name])}={arg}"
+          else:
+            params[-i - 1] = f"{name}={arg}"
+      kwparams = []
+      if kwcount := code_obj.co_kwonlyargcount:
+        for i in range(kwcount):
+          name = code_obj.co_varnames[l + i]
+          if name in self.kwdefaults and name in self.paramobjs:
+            kwparams.append(f"{name}:{self.paramobjs[name]}={self.kwdefaults[name]}")
+          elif name in self.kwdefaults:
+            kwparams.append(f"{name}={self.kwdefaults[name]}")
+          else:
+            kwparams.append(name)
+        l += kwcount
+      if code_obj.co_flags & VARARGS:
+          name = code_obj.co_varnames[l]
+          if name in self.paramobjs:
+              params.append(f'*{name}:{str(self.paramobjs[name])}')
+          else:
+              params.append(f'*{name}')
+          l += 1
+      elif kwparams:
+          params.append("*")
+      params.extend(kwparams)
+      if code_obj.co_flags & VARKEYWORDS:
+          name = code_obj.co_varnames[l]
+          if name in self.paramobjs:
+              params.append(f'**{name}:{str(self.paramobjs[name])}')
+          else:
+              params.append(f'**{name}')
 
-        return params
+      return params
 
     def getreturn(self):
         if self.paramobjs and 'return' in self.paramobjs:
@@ -1292,7 +1260,7 @@ class PyYield(PyExpr):
         self.value = value
 
     def __str__(self):
-        return "yield {}".format(self.value)
+      return f"yield {self.value}"
 
 
 class PyYieldFrom(PyExpr):
@@ -1302,7 +1270,7 @@ class PyYieldFrom(PyExpr):
         self.value = value
 
     def __str__(self):
-        return "yield from {}".format(self.value)
+      return f"yield from {self.value}"
 
 
 class PyStarred(PyExpr):
@@ -1313,8 +1281,8 @@ class PyStarred(PyExpr):
         self.expr = expr
 
     def __str__(self):
-        es = self.expr.wrap(self.expr.precedence < self.precedence)
-        return "*{}".format(es)
+      es = self.expr.wrap(self.expr.precedence < self.precedence)
+      return f"*{es}"
 
 
 
@@ -1386,11 +1354,11 @@ class PyStatement(object):
         return str(istr)
 
     def wrap(self, condition=True):
-        if condition:
-            assert not condition
-            return "({})".format(self)
-        else:
-            return str(self)
+      if condition:
+        assert not condition
+        return f"({self})"
+      else:
+        return str(self)
 
     def on_pop(self, dec):
         # dec.write("#ERROR: Unexpected context 'on_pop': pop on statement:  ")
@@ -1402,18 +1370,15 @@ class DocString(PyStatement):
         self.string = string
 
     def display(self, indent):
-        if '\n' not in self.string:
-            indent.write(repr(self.string))
-        else:
-            if "'''" not in self.string:
-                fence = "'''"
-            else:
-                fence = '"""'
-            lines = self.string.split('\n')
-            text = '\n'.join(l.encode('unicode_escape').decode().replace(fence,'\\'+fence)
-                             for l in lines)
-            docstring = "{0}{1}{0}".format(fence, text)
-            indent.write(docstring)
+      if '\n' not in self.string:
+        indent.write(repr(self.string))
+      else:
+        fence = "'''" if "'''" not in self.string else '"""'
+        lines = self.string.split('\n')
+        text = '\n'.join(l.encode('unicode_escape').decode().replace(fence,'\\'+fence)
+                         for l in lines)
+        docstring = "{0}{1}{0}".format(fence, text)
+        indent.write(docstring)
 
 
 class AssignStatement(PyStatement):
@@ -1480,24 +1445,28 @@ class ImportStatement(PyStatement):
         dec.suite.add_statement(self)
 
     def display(self, indent):
-        if self.fromlist == PyConst(None):
-            name = self.name.name
-            alias = self.alias.name
-            if name == alias or name.startswith(alias + "."):
-                indent.write("import {}", name)
-            else:
-                indent.write("import {} as {}", name, alias)
-        elif self.fromlist == PyConst(('*',)):
-            indent.write("from {} import *", self.name.name)
+      if self.fromlist == PyConst(None):
+        name = self.name.name
+        alias = self.alias.name
+        if name == alias or name.startswith(f"{alias}."):
+          indent.write("import {}", name)
         else:
-            names = []
-            for name, alias in zip(self.fromlist, self.aslist):
-                if name == alias:
-                    names.append(name)
-                else:
-                    names.append("{} as {}".format(name, alias))
-            indent.write("from {}{} import {}", ''.join(['.' for i in range(self.level.val)]), self.name,
-                         ", ".join(names))
+          indent.write("import {} as {}", name, alias)
+      elif self.fromlist == PyConst(('*',)):
+          indent.write("from {} import *", self.name.name)
+      else:
+        names = []
+        for name, alias in zip(self.fromlist, self.aslist):
+          if name == alias:
+            names.append(name)
+          else:
+            names.append(f"{name} as {alias}")
+        indent.write(
+            "from {}{} import {}",
+            ''.join(['.' for _ in range(self.level.val)]),
+            self.name,
+            ", ".join(names),
+        )
 
 
 class ImportFrom:
@@ -1548,9 +1517,9 @@ class IfStatement(PyStatement):
         self.false_suite.display(indent + 1)
 
     def gen_display(self, seq=()):
-        assert not self.false_suite
-        s = "if {}".format(self.cond)
-        return self.true_suite.gen_display(seq + (s,))
+      assert not self.false_suite
+      s = f"if {self.cond}"
+      return self.true_suite.gen_display(seq + (s,))
 
 
 class ForStatement(PyStatement, AsyncMixin):
@@ -1571,8 +1540,8 @@ class ForStatement(PyStatement, AsyncMixin):
             self.else_body.display(indent + 1)
 
     def gen_display(self, seq=()):
-        s = "{}for {} in {}".format(self.async_prefix, self.dest, self.iterable.wrap() if isinstance(self.iterable, PyIfElse) else self.iterable)
-        return self.body.gen_display(seq + (s,))
+      s = f"{self.async_prefix}for {self.dest} in {self.iterable.wrap() if isinstance(self.iterable, PyIfElse) else self.iterable}"
+      return self.body.gen_display(seq + (s,))
 
 
 class WhileStatement(PyStatement):
@@ -1608,18 +1577,17 @@ class DefStatement(FunctionDefinition, DecorableStatement, AsyncMixin):
         self.is_async = code.flags.coroutine or code.flags.async_generator
 
     def display_undecorated(self, indent):
-        paramlist = ", ".join(self.getparams())
-        result = self.getreturn()
-        if result:
-            indent.write("{}def {}({}) -> {}:", self.async_prefix, self.code.name, paramlist, result)
-        else:
-            indent.write("{}def {}({}):", self.async_prefix, self.code.name, paramlist)
-        # Assume that co_consts starts with None unless the function
-        # has a docstring, in which case it starts with the docstring
-        if self.code.consts[0] != PyConst(None):
-            docstring = self.code.consts[0].val
-            DocString(docstring).display(indent + 1)
-        self.code.get_suite().display(indent + 1)
+      paramlist = ", ".join(self.getparams())
+      if result := self.getreturn():
+        indent.write("{}def {}({}) -> {}:", self.async_prefix, self.code.name, paramlist, result)
+      else:
+        indent.write("{}def {}({}):", self.async_prefix, self.code.name, paramlist)
+      # Assume that co_consts starts with None unless the function
+      # has a docstring, in which case it starts with the docstring
+      if self.code.consts[0] != PyConst(None):
+          docstring = self.code.consts[0].val
+          DocString(docstring).display(indent + 1)
+      self.code.get_suite().display(indent + 1)
 
     def store(self, dec, dest):
         self.name = dest
@@ -1687,24 +1655,24 @@ class WithStatement(PyStatement):
         self.with_name = dest
 
     def display(self, indent, args=None):
-        # args to take care of nested withs:
-        # with x as t:
-        # with y as u:
-        #         <suite>
-        # --->
-        # with x as t, y as u:
-        #     <suite>
-        if args is None:
-            args = []
-        if self.with_name is None:
-            args.append(str(self.with_expr))
-        else:
-            args.append("{} as {}".format(self.with_expr, self.with_name))
-        if len(self.suite) == 1 and isinstance(self.suite[0], WithStatement):
-            self.suite[0].display(indent, args)
-        else:
-            indent.write(self.async_prefix + "with {}:", ", ".join(args))
-            self.suite.display(indent + 1)
+      # args to take care of nested withs:
+      # with x as t:
+      # with y as u:
+      #         <suite>
+      # --->
+      # with x as t, y as u:
+      #     <suite>
+      if args is None:
+          args = []
+      if self.with_name is None:
+        args.append(str(self.with_expr))
+      else:
+        args.append(f"{self.with_expr} as {self.with_name}")
+      if len(self.suite) == 1 and isinstance(self.suite[0], WithStatement):
+          self.suite[0].display(indent, args)
+      else:
+          indent.write(self.async_prefix + "with {}:", ", ".join(args))
+          self.suite.display(indent + 1)
 
 
 class ClassStatement(DecorableStatement):
@@ -1719,30 +1687,30 @@ class ClassStatement(DecorableStatement):
         dec.suite.add_statement(self)
 
     def display_undecorated(self, indent):
-        if self.parents or self.kwargs:
-            args = [str(x) for x in self.parents]
-            kwargs = ["{}={}".format(str(k).replace('\'', ''), v) for k, v in self.kwargs]
-            all_args = ", ".join(args + kwargs)
-            indent.write("class {}({}):", self.name, all_args)
-        else:
-            indent.write("class {}:", self.name)
-        suite = self.func.code.get_suite(look_for_docstring=True)
-        if suite:
-            # TODO: find out why sometimes the class suite ends with
-            # "return __class__"
-            last_stmt = suite[-1]
-            if isinstance(last_stmt, SimpleStatement):
-                if last_stmt.val.startswith("return "):
-                    suite.statements.pop()
-            clean_vars = ['__module__', '__qualname__']
-            for clean_var in clean_vars:
-                for i in range(len(suite.statements)):
-                    stmt = suite.statements[i]
-                    if isinstance(stmt, AssignStatement) and str(stmt).startswith(clean_var):
-                        suite.statements.pop(i)
-                        break
+      if self.parents or self.kwargs:
+          args = [str(x) for x in self.parents]
+          kwargs = ["{}={}".format(str(k).replace('\'', ''), v) for k, v in self.kwargs]
+          all_args = ", ".join(args + kwargs)
+          indent.write("class {}({}):", self.name, all_args)
+      else:
+          indent.write("class {}:", self.name)
+      suite = self.func.code.get_suite(look_for_docstring=True)
+      if suite:
+        # TODO: find out why sometimes the class suite ends with
+        # "return __class__"
+        last_stmt = suite[-1]
+        if isinstance(last_stmt,
+                      SimpleStatement) and last_stmt.val.startswith("return "):
+          suite.statements.pop()
+        clean_vars = ['__module__', '__qualname__']
+        for clean_var in clean_vars:
+            for i in range(len(suite.statements)):
+                stmt = suite.statements[i]
+                if isinstance(stmt, AssignStatement) and str(stmt).startswith(clean_var):
+                    suite.statements.pop(i)
+                    break
 
-        suite.display(indent + 1)
+      suite.display(indent + 1)
 
 
 class Suite:
@@ -1821,45 +1789,43 @@ class SuiteDecompiler:
            self.stack.push(PyInOp(left, right, oparg))
 
     def push_popjump(self, jtruthiness, jaddr, jcond, original_jaddr):
-        stack = self.popjump_stack
-        if jaddr and jaddr[-1].is_else_jump:
-            # Increase jaddr to the 'else' address if it jumps to the 'then'
-            jaddr = jaddr[-1].jump()
-        while stack:
-            truthiness, addr, cond, original_addr = stack[-1]
-            # if jaddr == None:
-            #     raise Exception("#ERROR: jaddr is None")
-            # jaddr == None \
-            if jaddr and jaddr < addr or jaddr == addr:
-                break
-            stack.pop()
-            obj_maker = PyBooleanOr if truthiness else PyBooleanAnd
-            if truthiness and jtruthiness:
-                if original_jaddr.arg == original_addr.arg:
-                    obj_maker = PyBooleanAnd
-                    cond = PyNot(cond)
-                    jcond = PyNot(jcond)
-                elif original_jaddr.arg > original_addr.arg:
-                    obj_maker = PyBooleanOr
-                    jcond = PyNot(jcond)
-            if not truthiness and not jtruthiness:
-                if original_jaddr.arg < original_addr.arg:
-                    obj_maker = PyBooleanOr
-                    cond = PyNot(cond)
-                elif original_jaddr.arg > original_addr.arg:
-                    obj_maker = PyBooleanOr
-                    cond = PyNot(cond)
-            if truthiness and not jtruthiness:
-                if original_jaddr.arg == original_addr.arg:
-                    obj_maker = PyBooleanAnd
-                    cond = PyNot(cond)
-            if isinstance(jcond, obj_maker):
-                # Use associativity of 'and' and 'or' to minimise the
-                # number of parentheses
-                jcond = obj_maker(obj_maker(cond, jcond.left), jcond.right)
-            else:
-                jcond = obj_maker(cond, jcond)
-        stack.append((jtruthiness, jaddr, jcond, original_jaddr))
+      stack = self.popjump_stack
+      if jaddr and jaddr[-1].is_else_jump:
+          # Increase jaddr to the 'else' address if it jumps to the 'then'
+          jaddr = jaddr[-1].jump()
+      while stack:
+        truthiness, addr, cond, original_addr = stack[-1]
+        # if jaddr == None:
+        #     raise Exception("#ERROR: jaddr is None")
+        # jaddr == None \
+        if jaddr and jaddr < addr or jaddr == addr:
+            break
+        stack.pop()
+        obj_maker = PyBooleanOr if truthiness else PyBooleanAnd
+        if truthiness and jtruthiness:
+            if original_jaddr.arg == original_addr.arg:
+                obj_maker = PyBooleanAnd
+                cond = PyNot(cond)
+                jcond = PyNot(jcond)
+            elif original_jaddr.arg > original_addr.arg:
+                obj_maker = PyBooleanOr
+                jcond = PyNot(jcond)
+        if (not truthiness and not jtruthiness
+            and (original_jaddr.arg < original_addr.arg
+                 or original_jaddr.arg > original_addr.arg)):
+          obj_maker = PyBooleanOr
+          cond = PyNot(cond)
+        if (truthiness and not jtruthiness
+            and original_jaddr.arg == original_addr.arg):
+          obj_maker = PyBooleanAnd
+          cond = PyNot(cond)
+        if isinstance(jcond, obj_maker):
+            # Use associativity of 'and' and 'or' to minimise the
+            # number of parentheses
+            jcond = obj_maker(obj_maker(cond, jcond.left), jcond.right)
+        else:
+            jcond = obj_maker(cond, jcond)
+      stack.append((jtruthiness, jaddr, jcond, original_jaddr))
 
     def pop_popjump(self):
         if not self.popjump_stack:
@@ -1882,17 +1848,11 @@ class SuiteDecompiler:
         return addr
 
     def write(self, template, *args):
-        def fmt(x):
-            if isinstance(x, int):
-                return self.stack.getval(x)
-            else:
-                return x
+      def fmt(x):
+        return self.stack.getval(x) if isinstance(x, int) else x
 
-        if args:
-            line = template.format(*map(fmt, args))
-        else:
-            line = template
-        self.suite.add_statement(SimpleStatement(line))
+      line = template.format(*map(fmt, args)) if args else template
+      self.suite.add_statement(SimpleStatement(line))
 
     def store(self, dest):
         val = self.stack.pop()
@@ -1951,42 +1911,44 @@ class SuiteDecompiler:
     #
 
     def SETUP_LOOP(self, addr: Address, delta):
-        jump_addr = addr.jump()
-        end_addr = jump_addr[-1]
+      jump_addr = addr.jump()
+      end_addr = jump_addr[-1]
 
-        end_cond = self.scan_to_first_jump_if(addr[1], end_addr)
-        if end_addr.opcode in (POP_BLOCK,POP_TOP) or not end_cond or end_addr.seek_back(else_jump_opcodes,end_addr.seek_back(stmt_opcodes)):  # assume conditional
+      end_cond = self.scan_to_first_jump_if(addr[1], end_addr)
+      if end_addr.opcode in (POP_BLOCK,POP_TOP) or not end_cond or end_addr.seek_back(else_jump_opcodes,end_addr.seek_back(stmt_opcodes)):  # assume conditional
             # scan to first jump
-            end_jump = None if not end_cond else end_cond.jump()
-            if end_jump and end_jump.opcode == POP_BLOCK:
-                end_jump = end_jump[1]
+        end_jump = end_cond.jump() if end_cond else None
+        if end_jump and end_jump.opcode == POP_BLOCK:
+            end_jump = end_jump[1]
 
-            if end_cond and end_cond[1].opcode == BREAK_LOOP:
-                end_cond = None
-            if end_cond and end_jump == jump_addr:
-                # scan for conditional
-                d_cond = SuiteDecompiler(addr[1], end_cond)
-                #
-                d_cond.run()
-                cond = d_cond.stack.pop()
-                if end_cond.opcode == POP_JUMP_IF_TRUE:
-                    cond = PyNot(cond)
-                d_body = SuiteDecompiler(end_cond[1], end_addr)
-                while_stmt = WhileStatement(cond, d_body.suite)
-                d_body.stack.push(while_stmt)
-                d_body.run()
-                while_stmt.body = d_body.suite
-                self.suite.add_statement(while_stmt)
-                return jump_addr
-            elif (not end_cond or not end_cond.jump()[1] == addr.jump()) and not self.is_for_loop(addr[1], end_addr):
-                d_body = SuiteDecompiler(addr[1], end_addr)
-                while_stmt = WhileStatement(PyConst(True), d_body.suite)
-                d_body.stack.push(while_stmt)
-                d_body.run()
-                while_stmt.body = d_body.suite
-                self.suite.add_statement(while_stmt)
-                return jump_addr
-        return None
+        if end_cond and end_cond[1].opcode == BREAK_LOOP:
+            end_cond = None
+        if end_cond and end_jump == jump_addr:
+          # scan for conditional
+          d_cond = SuiteDecompiler(addr[1], end_cond)
+          #
+          d_cond.run()
+          cond = d_cond.stack.pop()
+          if end_cond.opcode == POP_JUMP_IF_TRUE:
+              cond = PyNot(cond)
+          d_body = SuiteDecompiler(end_cond[1], end_addr)
+          while_stmt = WhileStatement(cond, d_body.suite)
+          d_body.stack.push(while_stmt)
+          d_body.run()
+          while_stmt.body = d_body.suite
+          self.suite.add_statement(while_stmt)
+          return jump_addr
+        elif (not end_cond
+              or end_cond.jump()[1] != addr.jump()) and not self.is_for_loop(
+                  addr[1], end_addr):
+          d_body = SuiteDecompiler(addr[1], end_addr)
+          while_stmt = WhileStatement(PyConst(True), d_body.suite)
+          d_body.stack.push(while_stmt)
+          d_body.run()
+          while_stmt.body = d_body.suite
+          self.suite.add_statement(while_stmt)
+          return jump_addr
+      return None
 
     def BREAK_LOOP(self, addr):
         self.write("break")
@@ -1995,16 +1957,13 @@ class SuiteDecompiler:
         self.write("continue")
 
     def SETUP_FINALLY(self, addr, delta):
-        start_finally: Address = addr.jump()
-        d_try = SuiteDecompiler(addr[1], start_finally)
-        d_try.run()
-        d_finally = SuiteDecompiler(start_finally)
-        end_finally = d_finally.run()
-        self.suite.add_statement(FinallyStatement(d_try.suite, d_finally.suite))
-        if end_finally:
-            return end_finally[1]
-        else:
-            return self.END_NOW
+      start_finally: Address = addr.jump()
+      d_try = SuiteDecompiler(addr[1], start_finally)
+      d_try.run()
+      d_finally = SuiteDecompiler(start_finally)
+      end_finally = d_finally.run()
+      self.suite.add_statement(FinallyStatement(d_try.suite, d_finally.suite))
+      return end_finally[1] if end_finally else self.END_NOW
 
     def END_FINALLY(self, addr):
         return self.END_NOW
