@@ -6,11 +6,28 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "unpyc"
-version = "1.0.0"
+version = "1.0.1"
 description = "Decompiler for Python 3.7+ .pyc files"
+authors = [
+    {name="greyblue9", email="greyblue9@gmail.com"},
+    {name="ADHD", email="unknown@example.com"},
+    {name="andrew-tavera", email="unknown@example.com"},
+    {name="figment", email="unknown@example.com"},
+    {name="arnodel", email="arnodel__DEL__@gmail.com"},
+]
+maintainers = [
+    {name="greyblue9", email="greyblue9@gmail.com"},
+]
 readme = "README.md"
 requires-python = ">=3.7"
-keywords = ["decompiler", "decompile", "unpyc", "decompyle", "uncompyle"]
+keywords = [
+    "decompiler",
+    "decompile",
+    "unpyc",
+    "pyc",
+    "decompyle",
+    "uncompyle"
+]
 license = {text = "MIT License"}
 classifiers = [
     "Programming Language :: Python :: 3",
