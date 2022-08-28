@@ -561,18 +561,13 @@ class Code:
             print(addr)
 
     def address(self, addr):
-        # print(f"{self}.address({addr=})")
         if addr in self.instr_map:
             tgt_addr = self.instr_map[addr]
-            # print(f"{self}.address({addr=}): {tgt_addr=}")
             ret = self[tgt_addr]
-            # print(f"{self}.address({addr=}): self[{tgt_addr}] -> {ret=}")
             return ret
         if addr in self.instr_list:
             tgt_addr = self.instr_list[addr]
-            # print(f"WARN: using instr_list: {self}.address({addr=}): {tgt_addr=}")
             ret = self[tgt_addr]
-            # print(f"{self}.address({addr=}): self[{tgt_addr}] -> {ret=}")
             return ret
         return self[addr]
 
@@ -2417,7 +2412,6 @@ class SuiteDecompiler:
     def IMPORT_NAME(self, addr, namei):
         name = self.code.names[namei]
         
-        # print("import namei=", name)
         if len(self.stack._stack) > 1:
             level, fromlist = self.stack.pop(2)
         else:
@@ -2863,33 +2857,22 @@ class SuiteDecompiler:
 
         last_loop = addr.seek_back(SETUP_LOOP)
         last_loop = last_loop or addr
-        # print(f"{last_loop=}")
         in_loop = last_loop and last_loop.jump() > addr
-        # print(f"{in_loop=}")
         end_of_loop = jump_addr.opcode == FOR_ITER or jump_addr[-1].opcode == SETUP_LOOP
-        # print(f"{end_of_loop=}")
-        # print(f"{jump_addr.opcode=}")
         if jump_addr.opcode == FOR_ITER:
             # We are in a for-loop with nothing after the if-suite
             # But take care: for-loops in generator expression do
             # not end in POP_BLOCK, hence the test below.
             jump_addr = jump_addr.jump()
-            # print(f"{jump_addr=}")
-            # print(f"{jump_addr.opcode=}")
         else:
-            # print("not FOR_ITER")
             if end_of_loop:
-            # We are in a while-loop with nothing after the if-suite
-            jump_addr = jump_addr[-1].jump()[-1]
-                # print(f"{jump_addr=}")
-                # print(f"{jump_addr.opcode=}")
+                # We are in a while-loop with nothing after the if-suite
+                jump_addr = jump_addr[-1].jump()[-1]
             else:
                 jump_addr = addr[1]
-                # print(f"{jump_addr=}")
-                # print(f"{jump_addr.opcode=}")
                 # raise Exception("unhandled")
         if self.stack._stack:
-        cond = self.stack.pop()
+            cond = self.stack.pop()
         else:
             cond = not truthiness
         # chained compare
