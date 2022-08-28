@@ -3374,34 +3374,44 @@ for op, name, ptn, prec, inplace_ptn in binary_ops:
 
 if __name__ == "__main__":
     import sys
-
     if len(sys.argv) < 2:
         print('USAGE: {} <filename.pyc> [START [END=-1]]'.format(sys.argv[0]))
-    else:
-        start = 0
-        end = -1
-        if len(sys.argv) > 2:
-            start = int(sys.argv[2])
-        if len(sys.argv) > 3:
-            end = int(sys.argv[3])
-        
-        with open(sys.argv[1], "rb") as stream:
-                    code_obj = read_code(stream)
-                    code = Code(code_obj)
-                    dc = SuiteDecompiler(
-code.address(code.instr_list[start][0]),
-code.address(code.instr_list[end][0]),
-                    )
-                    try:
-                        dc.run()
-                    except Exception as e:
-                        print(e)
+        sys.exit(1)
+    
+    start = 0
+    end = -1
+    if len(sys.argv) > 2:
+        start = int(sys.argv[2])
+    if len(sys.argv) > 3:
+        end = int(sys.argv[3])    
+    with open(sys.argv[1], "rb") as stream:
+        code_obj = read_code(stream)
+        code = Code(code_obj)
+        dc = SuiteDecompiler(
+          code.address(
+            code.instr_list[start][0]
+          ),
+          code.address(
+            code.instr_list[end][0]
+          )
+        )
+        try:
+            dc.run()
+        except Exception as e:
+            print(
+              "Exception during dc.run():",
+              e,
+              file=sys.stderr
+            )
 
-                        pass
-                    s = IndentString()
-                    try:
-                        dc.suite.display(s)
-                    except:
-                        pass
-                    print("\n".join(s.lines))
+        s = IndentString()
+        try:
+            dc.suite.display(s)
+        except Exception as e:
+            print(
+              "Exception during dc.suite.display():",
+              e,
+              file=sys.stderr
+            )
 
+        print("\x0a".join(s.lines))
