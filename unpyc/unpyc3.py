@@ -686,13 +686,13 @@ class Address:
       try:
 
         val = self.code.globals[self.arg] and self.arg + 1 < len(self.code.globals) if 'GLOBAL' in op else \
-                self.code.names[self.arg] if 'ATTR' in op else \
-                    self.code.names[self.arg] if 'NAME' in op else \
-                        self.code.names[self.arg] if 'LOAD_METHOD' in op else \
-                            self.code.consts[self.arg] if 'CONST' in op else \
-                                self.code.varnames[self.arg] if 'FAST' in op else \
-                                    self.code.derefnames[self.arg] if 'DEREF' in op else \
-                                        cmp_op[self.arg] if 'COMPARE' in op else ''
+                    self.code.names[self.arg] if 'ATTR' in op else \
+                        self.code.names[self.arg] if 'NAME' in op else \
+                            self.code.names[self.arg] if 'LOAD_METHOD' in op else \
+                                self.code.consts[self.arg] if 'CONST' in op else \
+                                    self.code.varnames[self.arg] if 'FAST' in op else \
+                                        self.code.derefnames[self.arg] if 'DEREF' in op else \
+                                            cmp_op[self.arg] if 'COMPARE' in op else ''
         if val != '':
           val = f'\t({val})'
       except:
@@ -1969,116 +1969,115 @@ class SuiteDecompiler:
         return self.END_NOW
 
     def SETUP_EXCEPT(self, addr, delta):
-        end_addr = addr
-        start_except = addr.jump()
-        start_try = addr[1]
-        end_try = start_except
-        if sys.version_info < (3, 7):
-            if end_try.opcode == JUMP_FORWARD:
-                end_try = end_try[1] + end_try.arg
-            elif end_try.opcode == JUMP_ABSOLUTE:
-                end_try = end_try[-1]
-            else:
-                end_try = end_try[1]
-        d_try = SuiteDecompiler(start_try, end_try)
-        d_try.run()
+      end_addr = addr
+      start_except = addr.jump()
+      start_try = addr[1]
+      end_try = start_except
+      if sys.version_info < (3, 7):
+          if end_try.opcode == JUMP_FORWARD:
+              end_try = end_try[1] + end_try.arg
+          elif end_try.opcode == JUMP_ABSOLUTE:
+              end_try = end_try[-1]
+          else:
+              end_try = end_try[1]
+      d_try = SuiteDecompiler(start_try, end_try)
+      d_try.run()
 
-        stmt = TryStatement(d_try.suite)
-        j_except: Address = None
-        while start_except.opcode != END_FINALLY:
-            if start_except.opcode == DUP_TOP:
-                # There's a new except clause
-                d_except = SuiteDecompiler(start_except[1])
-                d_except.stack.push(stmt)
-                d_except.run()
-                start_except = stmt.next_start_except
-                j_except = start_except[-1]
-                end_addr = start_except[1]
-            elif start_except.opcode == POP_TOP:
-                # It's a bare except clause - it starts:
-                # POP_TOP
-                # POP_TOP
-                # POP_TOP
-                # <except stuff>
-                # POP_EXCEPT
-                start_except = start_except[3]
-                end_except = start_except
+      stmt = TryStatement(d_try.suite)
+      j_except: Address = None
+      while start_except.opcode != END_FINALLY:
+          if start_except.opcode == DUP_TOP:
+              # There's a new except clause
+              d_except = SuiteDecompiler(start_except[1])
+              d_except.stack.push(stmt)
+              d_except.run()
+              start_except = stmt.next_start_except
+              j_except = start_except[-1]
+              end_addr = start_except[1]
+          elif start_except.opcode == POP_TOP:
+              # It's a bare except clause - it starts:
+              # POP_TOP
+              # POP_TOP
+              # POP_TOP
+              # <except stuff>
+              # POP_EXCEPT
+              start_except = start_except[3]
+              end_except = start_except
 
-                nested_try: int = 0
-                while end_except and end_except[-1].opcode != RETURN_VALUE:
-                    if end_except.opcode == SETUP_EXCEPT:
-                        nested_try += 1
-                    if end_except.opcode == POP_EXCEPT:
-                        if nested_try == 0:
-                            break
-                        nested_try -= 1
-                    end_except = end_except[1]
-                # Handle edge case where there is a return in the except
-                if end_except[-1].opcode == RETURN_VALUE:
-                    d_except = SuiteDecompiler(start_except, end_except)
-                    end_except = d_except.run()
-                    stmt.add_except_clause(None, d_except.suite)
-                    self.suite.add_statement(stmt)
-                    return end_except
+              nested_try: int = 0
+              while end_except and end_except[-1].opcode != RETURN_VALUE:
+                  if end_except.opcode == SETUP_EXCEPT:
+                      nested_try += 1
+                  if end_except.opcode == POP_EXCEPT:
+                      if nested_try == 0:
+                          break
+                      nested_try -= 1
+                  end_except = end_except[1]
+              # Handle edge case where there is a return in the except
+              if end_except[-1].opcode == RETURN_VALUE:
+                  d_except = SuiteDecompiler(start_except, end_except)
+                  end_except = d_except.run()
+                  stmt.add_except_clause(None, d_except.suite)
+                  self.suite.add_statement(stmt)
+                  return end_except
 
-                d_except = SuiteDecompiler(start_except, end_except)
-                end_except = d_except.run()
-                stmt.add_except_clause(None, d_except.suite)
-                start_except = end_except[2]
-                assert start_except.opcode == END_FINALLY
+              d_except = SuiteDecompiler(start_except, end_except)
+              end_except = d_except.run()
+              stmt.add_except_clause(None, d_except.suite)
+              start_except = end_except[2]
+              assert start_except.opcode == END_FINALLY
 
-                end_addr = start_except[1]
-                j_except: Address = end_except[1]
-        self.suite.add_statement(stmt)
-        if j_except and j_except.opcode in (JUMP_FORWARD, JUMP_ABSOLUTE, RETURN_VALUE):
-            j_next = j_except.jump()
-            start_else = end_addr
+              end_addr = start_except[1]
+              j_except: Address = end_except[1]
+      self.suite.add_statement(stmt)
+      if j_except and j_except.opcode in (JUMP_FORWARD, JUMP_ABSOLUTE, RETURN_VALUE):
+        j_next = j_except.jump()
+        start_else = end_addr
+        if j_next:
+          if j_next < start_else:
+            j_next = j_next.seek_back(SETUP_LOOP)
             if j_next:
-                if j_next < start_else:
-                    if j_next < start_else:
-                        j_next = j_next.seek_back(SETUP_LOOP)
-                        if j_next:
-                            j_next = j_next.jump()
-            else:
-                return_count = 0
-                next_return = start_else
-                while next_return:
-                    if next_return.opcode in pop_jump_if_opcodes:
-                        j_next_return = next_return.jump()
-                        if j_next_return > next_return:
-                            next_return = j_next_return
-                    if next_return.opcode == RETURN_VALUE:
-                        return_count += 1
-                    next_return = next_return[1]
-                if return_count == 1:
-                    return end_addr
+                j_next = j_next.jump()
+        else:
+          return_count = 0
+          next_return = start_else
+          while next_return:
+              if next_return.opcode in pop_jump_if_opcodes:
+                  j_next_return = next_return.jump()
+                  if j_next_return > next_return:
+                      next_return = j_next_return
+              if next_return.opcode == RETURN_VALUE:
+                  return_count += 1
+              next_return = next_return[1]
+          if return_count == 1:
+              return end_addr
 
-            end_else = j_next
-            d_else = SuiteDecompiler(start_else, end_else)
-            end_addr = d_else.run()
-            if not end_addr:
-                end_addr = self.END_NOW
-            stmt.else_suite = d_else.suite
-        return end_addr
+        end_else = j_next
+        d_else = SuiteDecompiler(start_else, end_else)
+        end_addr = d_else.run()
+        if not end_addr:
+            end_addr = self.END_NOW
+        stmt.else_suite = d_else.suite
+      return end_addr
 
     def SETUP_WITH(self, addr, delta):
-        end_with = addr.jump()
-        with_stmt = WithStatement(self.stack.pop())
-        d_with = SuiteDecompiler(addr[1], end_with)
-        d_with.stack.push(with_stmt)
-        d_with.run()
-        with_stmt.suite = d_with.suite
-        self.suite.add_statement(with_stmt)
-        if sys.version_info <= (3, 4):
-            assert end_with.opcode == WITH_CLEANUP
-            assert end_with[1].opcode == END_FINALLY
-            return end_with[2]
-        elif end_with.opcode == WITH_CLEANUP_START:
-            assert end_with.opcode == WITH_CLEANUP_START
-            assert end_with[1].opcode == WITH_CLEANUP_FINISH
-            return end_with[3]
-        elif end_with.opcode == WITH_EXCEPT_START:
-            """
+      end_with = addr.jump()
+      with_stmt = WithStatement(self.stack.pop())
+      d_with = SuiteDecompiler(addr[1], end_with)
+      d_with.stack.push(with_stmt)
+      d_with.run()
+      with_stmt.suite = d_with.suite
+      self.suite.add_statement(with_stmt)
+      if sys.version_info <= (3, 4):
+        assert end_with.opcode == WITH_CLEANUP
+        assert end_with[1].opcode == END_FINALLY
+        return end_with[2]
+      elif end_with.opcode == WITH_CLEANUP_START:
+          assert end_with.opcode == WITH_CLEANUP_START
+          assert end_with[1].opcode == WITH_CLEANUP_FINISH
+          return end_with[3]
+      elif end_with.opcode == WITH_EXCEPT_START:
+          """
         TARGET(WITH_EXCEPT_START) {
             /* At the top of the stack are 4 values:
                - TOP = exc_info()
@@ -2102,9 +2101,9 @@ class SuiteDecompiler:
                     3 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
         }
             """
-            start_index = [idx for idx, (a, (k,v)) in enumerate(end_with.code.instr_seq) if a == end_with[0].addr][0]
-            end_index = [idx for idx, (a, (k,v)) in enumerate(end_with.code.instr_seq) if idx > start_index and k == POP_EXCEPT][0]
-            """
+          start_index = [idx for idx, (a, (k,v)) in enumerate(end_with.code.instr_seq) if a == end_with[0].addr][0]
+          end_index = [idx for idx, (a, (k,v)) in enumerate(end_with.code.instr_seq) if idx > start_index and k == POP_EXCEPT][0]
+          """
 >>      182     WITH_EXCEPT_START
         184     POP_JUMP_IF_TRUE        188
         186     RERAISE
@@ -2113,11 +2112,13 @@ class SuiteDecompiler:
         192     POP_TOP
         194     POP_EXCEPT
             """            
-            assert end_with.opcode == WITH_EXCEPT_START
-            assert end_with[end_index - start_index].opcode == POP_EXCEPT
-            return end_with[end_index - start_index]
-        else:
-            raise AssertionError("Unexpectee opcode at start of BEGIN_WITH: end_with.opcode = {}".format(end_with.opcode))
+          assert end_with.opcode == WITH_EXCEPT_START
+          assert end_with[end_index - start_index].opcode == POP_EXCEPT
+          return end_with[end_index - start_index]
+      else:
+        raise AssertionError(
+            f"Unexpectee opcode at start of BEGIN_WITH: end_with.opcode = {end_with.opcode}"
+        )
 
     def POP_BLOCK(self, addr):
         pass
