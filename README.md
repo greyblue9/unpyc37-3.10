@@ -6,7 +6,8 @@ Decompiler for Python 3.7 +
 - Mostly complete support for Python 3.9
 - Minimal support for Python 3.10 (forked from https://github.com/figment/unpyc3)
 
-The original project is unsupported and only works for earlier versions of Python. This one only aims to work with Python 3.7.
+The original project is unsupported and only works
+for earlier versions of Python.
 
 ## Usage
 ### Synopsis
