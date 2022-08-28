@@ -1,0 +1,62 @@
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "unpyc"
+version = "1.0.0"
+description = "Decompiler for Python 3.7+ .pyc files"
+readme = "README.md"
+requires-python = ">=3.7"
+keywords = ["decompiler", "decompile", "unpyc", "decompyle", "uncompyle"]
+license = {text = "MIT License"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    'six',
+    'importlib-metadata; python_version<"3.8"',
+]
+
+
+[project.optional-dependencies]
+bytecode = ["bytecode"]
+
+
+[project.scripts]
+my-script = "unpyc.unpyc3"
+
+
+[setuptools.packages.find]
+# where = ["."] # list of folders that contain packages
+include = ["unpyc*"] # package names should match these glob patterns (["*"] by default)
+exclude = ["unpyc.tests*", "tests*", "*tests*"] # exclude packages matching these glob patterns (empty by default)
+namespaces = false # to disable scanning PEP 420 namespaces (true by default)
+
+
+[tool.black]
+line-length = 70
+target-version = ['py37', 'py38', 'py39', 'py310']
+include = '\.pyi?$'
+force-exclude = '.*/test.*/.*'
+extend-exclude = '''
+/(
+  | tests/data
+  | tests/unit/test_cases
+)/
+'''
+# We use preview style for formatting Black itself.
+# If you want stable formatting across releases, you
+# should keep this off.
+preview = true
+verbose = true
+color = true
+safe = true
+skip-magic-trailing-comma = true
+skip-string-normalization = true
+
+
+
+
