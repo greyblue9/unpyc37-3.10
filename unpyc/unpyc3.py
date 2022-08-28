@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from typing import Union, Iterable, Any, List
 
-from . import more_opcodes
+import more_opcodes
 import sys
 
 for opname, code in more_opcodes.opmap.items():
@@ -629,7 +629,7 @@ class Code:
             if opcode in pop_jump_if_opcodes:
                 jump_addr = self.address(arg)
                 if (
-                    jump_addr[-1].opcode in else_jump_opcodes
+                    jump_addr.opcode in else_jump_opcodes
                     or jump_addr.opcode == FOR_ITER
                 ):
                     last_jump = addr
@@ -2120,13 +2120,16 @@ class SuiteDecompiler:
         while addr and addr < end_addr:
             opcode, arg = addr
             args = (addr,) if opcode < HAVE_ARGUMENT else (addr, arg)
-            method = getattr(self, opname[opcode])
-            new_addr = method(*args)
-            if new_addr is self.END_NOW:
-                break
-            elif new_addr is None:
-                new_addr = addr[1]
-            addr = new_addr
+            try:
+                method = getattr(self, opname[opcode])
+                new_addr = method(*args)
+                if new_addr is self.END_NOW:
+                    break
+                elif new_addr is None:
+                    new_addr = addr[1]
+                addr = new_addr
+            except:
+                addr = None
         return addr
 
     def write(self, template, *args):
@@ -2464,7 +2467,7 @@ class SuiteDecompiler:
         left, right = self.stack.pop(2)
         if compare_opname != 10:  # 10 is exception match
             self.stack.push(
-                PyCompare([left, cmp_op[compare_opname], right])
+                PyCompare([left, cmp_op[compare_opname - 2], right])
             )
         else:
             # It's an exception match
@@ -2677,7 +2680,7 @@ class SuiteDecompiler:
         self.stack.push(PyAttribute(expr, attrname))
 
     def STORE_ATTR(self, addr, namei):
-        expr = self.stack.pop()
+        expr = self.stack.pop1()
         attrname = self.code.names[namei]
         self.store(PyAttribute(expr, attrname))
 
@@ -3859,13 +3862,6 @@ if __name__ == "__main__":
             print("Exception during dc.run():", e, file=sys.stderr)
 
         s = IndentString()
-        try:
-            dc.suite.display(s)
-        except Exception as e:
-            print(
-                "Exception during dc.suite.display():",
-                e,
-                file=sys.stderr,
-            )
+        dc.suite.display(s)
 
         print("\x0a".join(s.lines))
