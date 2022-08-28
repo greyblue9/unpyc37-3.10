@@ -2862,18 +2862,36 @@ class SuiteDecompiler:
         jump_addr = addr.jump()
 
         last_loop = addr.seek_back(SETUP_LOOP)
+        last_loop = last_loop or addr
+        # print(f"{last_loop=}")
         in_loop = last_loop and last_loop.jump() > addr
-
+        # print(f"{in_loop=}")
         end_of_loop = jump_addr.opcode == FOR_ITER or jump_addr[-1].opcode == SETUP_LOOP
+        # print(f"{end_of_loop=}")
+        # print(f"{jump_addr.opcode=}")
         if jump_addr.opcode == FOR_ITER:
             # We are in a for-loop with nothing after the if-suite
             # But take care: for-loops in generator expression do
             # not end in POP_BLOCK, hence the test below.
             jump_addr = jump_addr.jump()
-        elif end_of_loop:
+            # print(f"{jump_addr=}")
+            # print(f"{jump_addr.opcode=}")
+        else:
+            # print("not FOR_ITER")
+            if end_of_loop:
             # We are in a while-loop with nothing after the if-suite
             jump_addr = jump_addr[-1].jump()[-1]
+                # print(f"{jump_addr=}")
+                # print(f"{jump_addr.opcode=}")
+            else:
+                jump_addr = addr[1]
+                # print(f"{jump_addr=}")
+                # print(f"{jump_addr.opcode=}")
+                # raise Exception("unhandled")
+        if self.stack._stack:
         cond = self.stack.pop()
+        else:
+            cond = not truthiness
         # chained compare
         # ex:
         # if x <= y <= z:
