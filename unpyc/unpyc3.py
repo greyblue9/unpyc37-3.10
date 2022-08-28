@@ -2415,7 +2415,12 @@ class SuiteDecompiler:
 
     def IMPORT_NAME(self, addr, namei):
         name = self.code.names[namei]
-        level, fromlist = self.stack.pop(2)
+        
+        # print("import namei=", name)
+        if len(self.stack._stack) > 1:
+            level, fromlist = self.stack.pop(2)
+        else:
+            return addr[1]
         self.stack.push(ImportStatement(name, level, fromlist))
         # special case check for import x.y.z as w syntax which uses
         # attributes and assignments and is difficult to workaround
@@ -3369,7 +3374,33 @@ for op, name, ptn, prec, inplace_ptn in binary_ops:
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) == 1:
-        print('USAGE: {} <filename.pyc>'.format(sys.argv[0]))
+    if len(sys.argv) < 2:
+        print('USAGE: {} <filename.pyc> [START [END=-1]]'.format(sys.argv[0]))
     else:
-        print(decompile(sys.argv[1]))
+        start = 0
+        end = -1
+        if len(sys.argv) > 2:
+            start = int(sys.argv[2])
+        if len(sys.argv) > 3:
+            end = int(sys.argv[3])
+        
+        with open(sys.argv[1], "rb") as stream:
+                    code_obj = read_code(stream)
+                    code = Code(code_obj)
+                    dc = SuiteDecompiler(
+code.address(code.instr_list[start][0]),
+code.address(code.instr_list[end][0]),
+                    )
+                    try:
+                        dc.run()
+                    except Exception as e:
+                        print(e)
+
+                        pass
+                    s = IndentString()
+                    try:
+                        dc.suite.display(s)
+                    except:
+                        pass
+                    print("\n".join(s.lines))
+
