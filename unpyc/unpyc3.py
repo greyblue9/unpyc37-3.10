@@ -2467,7 +2467,7 @@ class SuiteDecompiler:
         left, right = self.stack.pop(2)
         if compare_opname != 10:  # 10 is exception match
             self.stack.push(
-                PyCompare([left, cmp_op[compare_opname - 2], right])
+                PyCompare([left, cmp_op[compare_opname], right])
             )
         else:
             # It's an exception match
