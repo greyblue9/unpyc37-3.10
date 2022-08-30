@@ -3083,8 +3083,8 @@ class SuiteDecompiler:
                 # We are in a while-loop with nothing after the if-suite
                 jump_addr = jump_addr[-1].jump()[-1]
             # Do NOT set jump_addr to addr[1] in 3.7 -> 3.9, it breaks if statements
-            elif sys.version_info > (3, 9):
-                jump_addr = addr[1]
+            #elif sys.version_info > (3, 9):
+                #jump_addr = Address(addr.code, target - 1)
                 # raise Exception("unhandled")
         if self.stack._stack:
             cond = self.stack.pop()
@@ -3195,7 +3195,8 @@ class SuiteDecompiler:
         # Increase jump_addr to pop all previous jumps
         self.push_popjump(truthiness, jump_addr[1], cond, addr)
         cond = self.pop_popjump()
-        end_true = Address(addr.code, target - 1)
+        jump_addr = Address(addr.code, target)
+        end_true = jump_addr[-1]
         if truthiness:
             last_pj = addr.seek_back(pop_jump_if_opcodes)
             if (
@@ -3210,13 +3211,13 @@ class SuiteDecompiler:
                 cond = PyNot(cond)
 
         if end_true.opcode == RETURN_VALUE:
-            end_false = end_true[1].seek_forward(RETURN_VALUE)
+            end_false = jump_addr.seek_forward(RETURN_VALUE)
             if (
                 end_false
                 and end_false[2]
                 and end_false[2].opcode == RETURN_VALUE
             ):
-                d_true = SuiteDecompiler(addr[1], end_true[1])
+                d_true = SuiteDecompiler(addr[1], jump_addr)
                 d_true.run()
                 d_false = SuiteDecompiler(jump_addr, end_false[1])
                 d_false.run()
@@ -3260,12 +3261,12 @@ class SuiteDecompiler:
         # assert statement. For now I just write it as a raise within
         # an if (see below)
         if end_true.opcode in (RETURN_VALUE, RAISE_VARARGS, POP_TOP):
-            d_true = SuiteDecompiler(addr[1], end_true[1])
+            d_true = SuiteDecompiler(addr[1], jump_addr)
             d_true.run()
             self.suite.add_statement(
                 IfStatement(cond, d_true.suite, Suite())
             )
-            return end_true[1]
+            return jump_addr
         if is_chained and addr[1].opcode == JUMP_ABSOLUTE:
             end_true = end_true[-2]
         d_true = SuiteDecompiler(addr[1], end_true)
@@ -3294,7 +3295,6 @@ class SuiteDecompiler:
             return jump_addr[1]
         # It's an if-else (expression or statement)
         if end_true.opcode == JUMP_FORWARD:
-            jump_addr = end_true[1]
             end_false = end_true.jump()
         elif end_true.opcode == JUMP_ABSOLUTE:
             end_false = end_true.jump()
@@ -3315,16 +3315,6 @@ class SuiteDecompiler:
         elif end_true.opcode == BREAK_LOOP:
             # likely in a loop in a try/except
             end_false = jump_addr
-        elif sys.version_info > (3, 9):
-            # 3.10 needs some complicated logic:
-            #     set end_true and jump_addr to target for the d_false suite below
-            #     rerun the d_true suite because we reset it
-            #     get the last opcode for end_false
-            #       (any other case is handled by everything else above this branch... right?)
-            jump_addr = end_true = Address(addr.code, target)
-            d_true = SuiteDecompiler(addr[1], end_true)
-            d_true.run()
-            end_false = addr.code[-1]
         else:
             end_false = jump_addr
             # # normal statement
