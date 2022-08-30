@@ -39,7 +39,8 @@ def make_roundtrip_test(fp,use_trace=True):
         compiled = get_compiled_binary(fp)
         try:
             src, result_src = roundtrip_test(fp)
-            self.assertEqual(src, result_src)
+
+            self.assertEqual(compile(src, "tests", "exec").co_code, compile(result_src, "tests", "exec").co_code)
         except Exception as ae:
             if use_trace and not unpyc3.get_trace():
                 try:
