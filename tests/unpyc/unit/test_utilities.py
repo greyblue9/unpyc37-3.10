@@ -4,7 +4,7 @@ import io
 import marshal
 import os
 import fnmatch
-import unpyc3
+import src.unpyc3 as unpyc3
 import importlib.util
 import sys
 
