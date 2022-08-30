@@ -470,12 +470,16 @@ class Code:
                 self.jump_targets.append(jt)
 
     def find_else(self):
-        jumps = {}
+        self.else_jumps = jumps = {}
         last_jump = None
         for addr in self:
             opcode, arg = addr
             if opcode in pop_jump_if_opcodes:
-                jump_addr = self.address(arg)
+                if sys.version_info > (3, 9): # 3.10 needs a doubled arg (e.g. 14)
+                    jump_addr = self.address(arg * 2 - 2)
+                else: # and <3.10 does not need a doubled arg (e.g. 28)
+                    jump_addr = self.address(arg - 2)
+                print(opname[opcode], jump_addr)
                 if (
                     jump_addr.opcode in else_jump_opcodes
                     or jump_addr.opcode == FOR_ITER
@@ -653,7 +657,7 @@ class Address:
     def jump(self) -> Address:
         opcode = self.opcode
         if opcode in dis.hasjrel:
-            return self[1] + self.arg
+            return self[self.arg + 1]
         elif opcode in dis.hasjabs:
             return self.code.address(self.arg)
 
@@ -3079,7 +3083,8 @@ class SuiteDecompiler:
             if end_of_loop:
                 # We are in a while-loop with nothing after the if-suite
                 jump_addr = jump_addr[-1].jump()[-1]
-            else:
+            # Do NOT set jump_addr to addr[1] in 3.7 -> 3.9, it breaks if statements
+            elif sys.version_info > (3, 9):
                 jump_addr = addr[1]
                 # raise Exception("unhandled")
         if self.stack._stack:
@@ -3191,7 +3196,7 @@ class SuiteDecompiler:
         # Increase jump_addr to pop all previous jumps
         self.push_popjump(truthiness, jump_addr[1], cond, addr)
         cond = self.pop_popjump()
-        end_true = jump_addr[-1]
+        end_true = Address(addr.code, target - 1)
         if truthiness:
             last_pj = addr.seek_back(pop_jump_if_opcodes)
             if (
@@ -3206,7 +3211,7 @@ class SuiteDecompiler:
                 cond = PyNot(cond)
 
         if end_true.opcode == RETURN_VALUE:
-            end_false = jump_addr.seek_forward(RETURN_VALUE)
+            end_false = end_true[1].seek_forward(RETURN_VALUE)
             if (
                 end_false
                 and end_false[2]
@@ -3261,7 +3266,7 @@ class SuiteDecompiler:
             self.suite.add_statement(
                 IfStatement(cond, d_true.suite, Suite())
             )
-            return jump_addr
+            return end_true[1]
         if is_chained and addr[1].opcode == JUMP_ABSOLUTE:
             end_true = end_true[-2]
         d_true = SuiteDecompiler(addr[1], end_true)
@@ -3290,6 +3295,7 @@ class SuiteDecompiler:
             return jump_addr[1]
         # It's an if-else (expression or statement)
         if end_true.opcode == JUMP_FORWARD:
+            jump_addr = end_true[1]
             end_false = end_true.jump()
         elif end_true.opcode == JUMP_ABSOLUTE:
             end_false = end_true.jump()
@@ -3303,13 +3309,23 @@ class SuiteDecompiler:
                 end_false = self.wrap_addr(end_false)[1]
         elif end_true.opcode == RETURN_VALUE:
             # find the next RETURN_VALUE
-            end_false = jump_addr
+            end_false = end_true[1]
             while end_false.opcode != RETURN_VALUE:
                 end_false = end_false[1]
             end_false = end_false[1]
         elif end_true.opcode == BREAK_LOOP:
             # likely in a loop in a try/except
             end_false = jump_addr
+        elif sys.version_info > (3, 9):
+            # 3.10 needs some complicated logic:
+            #     set end_true and jump_addr to target for the d_false suite below
+            #     rerun the d_true suite because we reset it
+            #     get the last opcode for end_false
+            #       (any other case is handled by everything else above this branch... right?)
+            jump_addr = end_true = Address(addr.code, target)
+            d_true = SuiteDecompiler(addr[1], end_true)
+            d_true.run()
+            end_false = addr.code[-1]
         else:
             end_false = jump_addr
             # # normal statement
