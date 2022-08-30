@@ -42,7 +42,7 @@ from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
 import opcode
 
-for name in ("opcodes", "more_opcodes"):
+for name in ("opcodes",):
     path = (
         Path(__file__).parent / f"{name}.py"
     ).absolute().as_posix()
@@ -76,170 +76,7 @@ for opname, code in opmap.items():
     # sys.stderr.flush()
 
 # __all__ = ['decompile']
-STOP_CODE = 0
-POP_TOP = 1
-UNARY_POSITIVE = 10
-LOAD_CONST = 100
-LOAD_NAME = 101
-BUILD_TUPLE = 102
-BUILD_LIST = 103
-BUILD_SET = 104
-BUILD_MAP = 105
-LOAD_ATTR = 106
-COMPARE_OP = 107
-IMPORT_NAME = 108
-IMPORT_FROM = 109
-UNARY_NEGATIVE = 11
-JUMP_FORWARD = 110
-JUMP_IF_FALSE_OR_POP = 111
-JUMP_IF_TRUE_OR_POP = 112
-JUMP_ABSOLUTE = 113
-POP_JUMP_IF_FALSE = 114
-POP_JUMP_IF_TRUE = 115
-LOAD_GLOBAL = 116
-CONTINUE_LOOP = 119
-UNARY_NOT = 12
-SETUP_LOOP = 120
-SETUP_EXCEPT = 121
-SETUP_FINALLY = 122
-LOAD_FAST = 124
-STORE_FAST = 125
-DELETE_FAST = 126
-UNARY_CONVERT = 13
-RAISE_VARARGS = 130
-CALL_FUNCTION = 131
-MAKE_FUNCTION = 132
-BUILD_SLICE = 133
-MAKE_CLOSURE = 134
-LOAD_CLOSURE = 135
-LOAD_DEREF = 136
-STORE_DEREF = 137
-DELETE_DEREF = 138
-CALL_FUNCTION_VAR = 140
-CALL_FUNCTION_KW = 141
-CALL_FUNCTION_EX = 142
-CALL_FUNCTION_VAR_KW = 142
-SETUP_WITH = 143
-EXTENDED_ARG = 144
-EXTENDED_ARG = 145
-LIST_APPEND = 145
-SET_ADD = 146
-MAP_ADD = 147
-LOAD_CLASSDEREF = 148
-BUILD_LIST_UNPACK = 149
-UNARY_INVERT = 15
-BUILD_MAP_UNPACK = 150
-BUILD_MAP_UNPACK_WITH_CALL = 151
-BUILD_TUPLE_UNPACK = 152
-BUILD_SET_UNPACK = 153
-SETUP_ASYNC_WITH = 154
-FORMAT_VALUE = 155
-BUILD_CONST_KEY_MAP = 156
-BUILD_STRING = 157
-BUILD_TUPLE_UNPACK_WITH_CALL = 158
-BINARY_MATRIX_MULTIPLY = 16
-LOAD_METHOD = 160
-CALL_METHOD = 161
-LIST_EXTEND = 162
-SET_UPDATE = 163
-DICT_MERGE = 164
-DICT_UPDATE = 165
-INPLACE_MATRIX_MULTIPLY = 17
-BINARY_POWER = 19
-ROT_TWO = 2
-BINARY_MULTIPLY = 20
-BINARY_DIVIDE = 21
-BINARY_MODULO = 22
-BINARY_ADD = 23
-BINARY_SUBTRACT = 24
-BINARY_SUBSCR = 25
-EXCEPT_HANDLER = 257
-BINARY_FLOOR_DIVIDE = 26
-BINARY_TRUE_DIVIDE = 27
-INPLACE_FLOOR_DIVIDE = 28
-INPLACE_TRUE_DIVIDE = 29
-ROT_THREE = 3
-SLICE = 30
-SLICE_1 = 31
-SLICE_2 = 32
-SLICE_3 = 33
-DUP_TOP = 4
-STORE_SLICE = 40
-STORE_SLICE_1 = 41
-STORE_SLICE_2 = 42
-STORE_SLICE_3 = 43
-RERAISE = 48
-WITH_EXCEPT_START = 49
-DUP_TOP_TWO = 5
-ROT_FOUR = 5
-DELETE_SLICE = 50
-GET_AITER = 50
-DELETE_SLICE_1 = 51
-GET_ANEXT = 51
-BEFORE_ASYNC_WITH = 52
-DELETE_SLICE_2 = 52
-DELETE_SLICE_3 = 53
-END_ASYNC_FOR = 54
-STORE_MAP = 54
-INPLACE_ADD = 55
-INPLACE_SUBTRACT = 56
-INPLACE_MULTIPLY = 57
-INPLACE_DIVIDE = 58
-INPLACE_MODULO = 59
-ROT_FOUR = 6
-STORE_SUBSCR = 60
-DELETE_SUBSCR = 61
-BINARY_LSHIFT = 62
-BINARY_RSHIFT = 63
-BINARY_AND = 64
-BINARY_XOR = 65
-BINARY_OR = 66
-INPLACE_POWER = 67
-GET_ITER = 68
-GET_YIELD_FROM_ITER = 69
-STORE_LOCALS = 69
-PRINT_EXPR = 70
-LOAD_BUILD_CLASS = 71
-PRINT_ITEM = 71
-PRINT_NEWLINE = 72
-YIELD_FROM = 72
-GET_AWAITABLE = 73
-PRINT_ITEM_TO = 73
-LOAD_ASSERTION_ERROR = 74
-PRINT_NEWLINE_TO = 74
-INPLACE_LSHIFT = 75
-INPLACE_RSHIFT = 76
-INPLACE_AND = 77
-INPLACE_XOR = 78
-INPLACE_OR = 79
-BREAK_LOOP = 80
-WITH_CLEANUP = 81
 
-LIST_TO_TUPLE = 82
-LOAD_LOCALS = 82
-
-RETURN_VALUE = 83
-IMPORT_STAR = 84
-EXEC_STMT = 85
-SETUP_ANNOTATIONS = 85
-YIELD_VALUE = 86
-POP_BLOCK = 87
-END_FINALLY = 88
-BUILD_CLASS = 89
-POP_EXCEPT = 89
-NOP = 9
-HAVE_ARGUMENT = 90
-STORE_NAME = 90
-DELETE_NAME = 91
-UNPACK_SEQUENCE = 92
-FOR_ITER = 93
-LIST_APPEND = 94
-UNPACK_EX = 94
-STORE_ATTR = 95
-DELETE_ATTR = 96
-STORE_GLOBAL = 97
-DELETE_GLOBAL = 98
-DUP_TOPX = 99
 
 
 def set_trace(trace_function):
@@ -288,37 +125,7 @@ for name, val in opmap.items():
 # These opcodes will generate a statement. This is used in the first
 # pass (in Code.find_else) to find which POP_JUMP_IF_* instructions
 # are jumps to the else clause of an if statement
-stmt_opcodes = {
-    SETUP_LOOP,
-    BREAK_LOOP,
-    CONTINUE_LOOP,
-    SETUP_FINALLY,
-    END_FINALLY,
-    SETUP_EXCEPT,
-    POP_EXCEPT,
-    SETUP_WITH,
-    POP_BLOCK,
-    STORE_FAST,
-    DELETE_FAST,
-    STORE_DEREF,
-    DELETE_DEREF,
-    STORE_GLOBAL,
-    DELETE_GLOBAL,
-    STORE_NAME,
-    DELETE_NAME,
-    STORE_ATTR,
-    DELETE_ATTR,
-    IMPORT_NAME,
-    IMPORT_FROM,
-    RETURN_VALUE,
-    YIELD_VALUE,
-    RAISE_VARARGS,
-    POP_TOP,
-    LIST_EXTEND,
-    SET_UPDATE,
-    DICT_MERGE,
-    DICT_UPDATE,
-}
+stmt_opcodes = {1, 130, 137, 138, 143, 80, 83, 86, 87, 88, 89, 90, 91, 95, 96, 97, 98, 108, 109, 119, 120, 121, 122, 125, 126}
 
 # Conditional branching opcode that make up if statements and and/or
 # expressions
@@ -330,11 +137,13 @@ else_jump_opcodes = (
     JUMP_FORWARD,
     RETURN_VALUE,
     JUMP_ABSOLUTE,
-    SETUP_LOOP,
     RAISE_VARARGS,
     POP_TOP,
 )
-
+if "SETUP_LOOP" in globals():
+    else_jump_opcodes += (
+        SETUP_LOOP,
+    )
 # These opcodes indicate for loop rather than while loop
 for_jump_opcodes = (GET_ITER, FOR_ITER, GET_ANEXT)
 
@@ -2389,7 +2198,7 @@ class SuiteDecompiler:
             start_else = end_addr
             if j_next:
                 if j_next < start_else:
-                    if j_next < start_else:
+                    if j_next < start_else and "SETUP_LOOP" in globals():
                         j_next = j_next.seek_back(SETUP_LOOP)
                         if j_next:
                             j_next = j_next.jump()
@@ -2757,7 +2566,7 @@ class SuiteDecompiler:
         if len(self.stack._stack) > 1:
             level, fromlist = self.stack.pop(2)
         else:
-            return addr[1]
+            return addr[0]
         self.stack.push(ImportStatement(name, level, fromlist))
         # special case check for import x.y.z as w syntax which uses
         # attributes and assignments and is difficult to workaround
@@ -3247,12 +3056,18 @@ class SuiteDecompiler:
     ) -> Union[Address, None]:
         jump_addr = addr.jump()
 
-        last_loop = addr.seek_back(SETUP_LOOP)
+        last_loop = None 
+        if "SETUP_LOOP" in globals():
+            last_loop = addr.seek_back(SETUP_LOOP)
+        
         last_loop = last_loop or addr
         in_loop = last_loop and last_loop.jump() > addr
         end_of_loop = (
             jump_addr.opcode == FOR_ITER
-            or jump_addr[-1].opcode == SETUP_LOOP
+            or (
+                "SETUP_LOOP" in globals()
+                and jump_addr[-1].opcode == SETUP_LOOP
+            )
         )
         if jump_addr.opcode == FOR_ITER:
             # We are in a for-loop with nothing after the if-suite
@@ -3480,7 +3295,7 @@ class SuiteDecompiler:
             if end_false.opcode == FOR_ITER:
                 # We are in a for-loop with nothing after the else-suite
                 end_false = end_false.jump()[-1]
-            elif self.wrap_addr(end_false)[-1].opcode == SETUP_LOOP:
+            elif "SETUP_LOOP" in globals() and self.wrap_addr(end_false)[-1].opcode == SETUP_LOOP:
                 # We are in a while-loop with nothing after the else-suite
                 end_false = self.wrap_addr(end_false)[-1].jump()[-1]
             if end_false.opcode == RETURN_VALUE:
@@ -3566,7 +3381,7 @@ class SuiteDecompiler:
         # TODO: print out continue if not final jump
         jump_addr = addr.jump()
 
-        if self.wrap_addr(jump_addr)[-1].opcode == SETUP_LOOP:
+        if "SETUP_LOOP" in globals() and self.wrap_addr(jump_addr)[-1].opcode == SETUP_LOOP:
             end_addr = jump_addr + self.wrap_addr(jump_addr)[-1].arg
 
             last_jump = self.scan_for_final_jump(
@@ -3597,9 +3412,13 @@ class SuiteDecompiler:
         d_body.stack.push(for_stmt)
         d_body.run()
         for_stmt.body = d_body.suite
-        loop = addr.seek_back(SETUP_LOOP)
+        loop = None
+        outer_loop = None
+        if "SETUP_LOOP" in globals():
+            loop = addr.seek_back(SETUP_LOOP)
         while loop:
-            outer_loop = loop.seek_back(SETUP_LOOP)
+            if "SETUP_LOOP" in globals():
+                outer_loop = loop.seek_back(SETUP_LOOP)
             if outer_loop:
                 if outer_loop.jump().addr < loop.addr:
                     break
