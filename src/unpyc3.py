@@ -3079,8 +3079,7 @@ class SuiteDecompiler:
             if end_of_loop:
                 # We are in a while-loop with nothing after the if-suite
                 jump_addr = jump_addr[-1].jump()[-1]
-            # Do NOT set jump_addr to addr[1] in 3.7 -> 3.9, it breaks if statements
-            elif sys.version_info > (3, 9):
+            else:
                 jump_addr = addr[1]
                 # raise Exception("unhandled")
         if self.stack._stack:
