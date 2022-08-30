@@ -2315,7 +2315,7 @@ class SuiteDecompiler:
         left, right = self.stack.pop(2)
         if compare_opname != 10:  # 10 is exception match
             self.stack.push(
-                PyCompare([left, cmp_op[compare_opname - 2], right])
+                PyCompare([left, cmp_op[compare_opname], right])
             )
         else:
             # It's an exception match
@@ -3079,7 +3079,8 @@ class SuiteDecompiler:
             if end_of_loop:
                 # We are in a while-loop with nothing after the if-suite
                 jump_addr = jump_addr[-1].jump()[-1]
-            else:
+            # Do NOT set jump_addr to addr[1] in 3.7 -> 3.9, it breaks if statements
+            elif sys.version_info > (3, 9):
                 jump_addr = addr[1]
                 # raise Exception("unhandled")
         if self.stack._stack:
