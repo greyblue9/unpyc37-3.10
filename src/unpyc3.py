@@ -470,7 +470,7 @@ class Code:
                 self.jump_targets.append(jt)
 
     def find_else(self):
-        self.else_jumps = jumps = {}
+        jumps = {}
         last_jump = None
         for addr in self:
             opcode, arg = addr
@@ -479,7 +479,6 @@ class Code:
                     jump_addr = self.address(arg * 2 - 2)
                 else: # and <3.10 does not need a doubled arg (e.g. 28)
                     jump_addr = self.address(arg - 2)
-                print(opname[opcode], jump_addr)
                 if (
                     jump_addr.opcode in else_jump_opcodes
                     or jump_addr.opcode == FOR_ITER
