@@ -24,12 +24,51 @@ def foo(x, y, z=3, *args):
 """
 from __future__ import annotations
 
-from typing import Union, Iterable, Any, List
-
-import more_opcodes
+__package__ = "unpyc"
 import sys
+from pathlib import Path
+from types import ModuleType
+nspkg = ModuleType(__package__)
+nspkg.__package__ = __package__
+nspkg.__name__ = __package__
+nspkg.__path__ = [
+    Path(__file__).parent.absolute().as_posix()
+]
+sys.modules[__package__] = nspkg
 
-for opname, code in more_opcodes.opmap.items():
+sys.modules[f"[__package__].{__name__}"] = __import__(__name__)
+from typing import Union, Iterable, Any, List
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+import opcode
+
+for name in ("opcodes", "more_opcodes"):
+    path = (
+        Path(__file__).parent / f"{name}.py"
+    ).absolute().as_posix()
+    loader = SourceFileLoader(
+        f"{__package__}.{name}",
+        path,
+    )
+    module = module_from_spec(
+        spec_from_loader(
+            f"{__package__}.{name}",
+            loader=loader,
+            origin=path,
+            is_package=False
+        )
+    )
+    loader.exec_module(module)
+    globals().update({name: module})
+
+opnames = {}
+opmap = {}
+
+for opc, opname in enumerate(opcode.opname):
+    opmap[opname] = opc
+    opnames[opc] = opname
+
+for opname, code in opmap.items():
     if not opname.isidentifier():
         continue
     # sys.stderr.write(f'Adding opcode {opname=} -> {code=}\x0a')
