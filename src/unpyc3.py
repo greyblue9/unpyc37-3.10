@@ -2568,12 +2568,13 @@ class SuiteDecompiler:
         else:
             return addr[0]
         self.stack.push(ImportStatement(name, level, fromlist))
-        # special case check for import x.y.z as w syntax which uses
-        # attributes and assignments and is difficult to workaround
+        # special case check for import x.y.z as w
+        # syntax which uses attributes and assignments
+        # and is difficult to workaround
         i = 1
         while addr[i].opcode == LOAD_ATTR:
             i = i + 1
-        if i > 1 and addr[i].opcode in (STORE_FAST, STORE_NAME):
+        if i > 1 and addr[i].opcode in (STORE_FAST, STORE_NAME, STORE_ATTR):
             return addr[i]
         return None
 
