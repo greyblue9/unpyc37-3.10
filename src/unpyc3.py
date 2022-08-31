@@ -484,9 +484,9 @@ class Code:
         for addr in self:
             opcode, arg = addr
             if opcode in pop_jump_if_opcodes:
-                    # 3.10 needs a doubled arg (e.g. 14) but any
-                    # version lower does not (e.g. 28)
-                    jump_addr = self.address(arg * (IS_310 and 2) - 2)
+                # 3.10 needs a doubled arg (e.g. 14) but any
+                # version lower does not (e.g. 28)
+                jump_addr = self.address(arg * (IS_310 and 2) - 2)
                 if (
                     jump_addr.opcode in else_jump_opcodes
                     or jump_addr.opcode is FOR_ITER
