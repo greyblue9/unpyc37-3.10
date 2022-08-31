@@ -1988,7 +1988,7 @@ class SuiteDecompiler:
                     new_addr = addr[1]
                 addr = new_addr
             except BaseException as e:
-                traceback.print_exception(e)
+                traceback.print_exception(BaseException, e, None)
                 addr = None
         return addr
 
@@ -3091,7 +3091,8 @@ class SuiteDecompiler:
             if end_of_loop:
                 # We are in a while-loop with nothing after the if-suite
                 jump_addr = jump_addr[-1].jump()[-1]
-            # else
+            else:
+                jump_addr = addr[1]
                 # raise Exception("unhandled")
         if self.stack._stack:
             cond = self.stack.pop()
