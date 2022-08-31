@@ -104,6 +104,8 @@ def _trace(*args):
 
 current_trace = _trace
 
+IS_310 = sys.version_info > (3, 9)
+
 # TODO:
 # - Support for keyword-only arguments
 # - Handle assert statements better
@@ -478,10 +480,9 @@ class Code:
         for addr in self:
             opcode, arg = addr
             if opcode in pop_jump_if_opcodes:
-                if sys.version_info > (3, 9): # 3.10 needs a doubled arg (e.g. 14)
-                    jump_addr = self.address(arg * 2 - 2)
-                else: # and <3.10 does not need a doubled arg (e.g. 28)
-                    jump_addr = self.address(arg - 2)
+                    # 3.10 needs a doubled arg (e.g. 14) but any
+                    # version lower does not (e.g. 28)
+                    jump_addr = self.address(arg * (IS_310 and 2) - 2)
                 if (
                     jump_addr.opcode in else_jump_opcodes
                     or jump_addr.opcode is FOR_ITER
@@ -661,7 +662,7 @@ class Address:
         if opcode in dis.hasjrel:
             return self[self.arg + 1]
         elif opcode in dis.hasjabs:
-            return self.code.address(self.arg * 2)
+            return self.code.address(self.arg * (IS_310 and 2))
 
     def seek(
         self, opcode: Iterable, increment: int, end: Address = None
