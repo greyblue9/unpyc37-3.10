@@ -26,9 +26,9 @@ from __future__ import annotations
 
 __package__ = "unpyc"
 import sys
+import traceback
 from pathlib import Path
 from types import ModuleType
-import traceback
 nspkg = ModuleType(__package__)
 nspkg.__package__ = __package__
 nspkg.__name__ = __package__
@@ -659,7 +659,7 @@ class Address:
     def jump(self) -> Address:
         opcode = self.opcode
         if opcode in dis.hasjrel:
-            return self[self.arg * 2 + 2]
+            return self[self.arg + 1]
         elif opcode in dis.hasjabs:
             return self.code.address(self.arg * 2)
 
