@@ -76,7 +76,11 @@ for opname, code in opmap.items():
     exec(f'{opname} = {code}')
     # sys.stderr.flush()
 
-END_FINALLY = -1
+def missing_var(name):
+    if name not in globals():
+        globals()[name] = -1
+
+missing_var("END_FINALLY")
 
 # __all__ = ['decompile']
 
