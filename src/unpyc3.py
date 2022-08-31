@@ -3197,7 +3197,6 @@ class SuiteDecompiler:
         # Increase jump_addr to pop all previous jumps
         self.push_popjump(truthiness, jump_addr[1], cond, addr)
         cond = self.pop_popjump()
-        jump_addr = Address(addr.code, target)
         end_true = jump_addr[-1]
         if truthiness:
             last_pj = addr.seek_back(pop_jump_if_opcodes)
@@ -3257,7 +3256,7 @@ class SuiteDecompiler:
                 self.suite.add_statement(
                     SimpleStatement(f'assert {assert_arg_str}')
                 )
-                return end_true[1]
+                return jump_addr
         # - If the true clause ends in return, make sure it's included
         # - If the true clause ends in RAISE_VARARGS, then it's an
         # assert statement. For now I just write it as a raise within
@@ -3310,7 +3309,7 @@ class SuiteDecompiler:
                 end_false = self.wrap_addr(end_false)[1]
         elif end_true.opcode is RETURN_VALUE:
             # find the next RETURN_VALUE
-            end_false = end_true[1]
+            end_false = jump_addr
             while end_false.opcode is not RETURN_VALUE:
                 end_false = end_false[1]
             end_false = end_false[1]
