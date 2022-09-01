@@ -3026,6 +3026,11 @@ class SuiteDecompiler:
                 return end_addr[3]
 
         d = SuiteDecompiler(addr[1], end_addr, self.stack)
+        if end_addr[-1].opcode is RETURN_VALUE:
+            d = SuiteDecompiler(addr[1], end_addr[-1], self.stack)
+        else:
+            d = SuiteDecompiler(addr[1], end_addr, self.stack)
+        
         d.run()
         # if end_addr.opcode is RETURN_VALUE:
         #     return end_addr[2]
