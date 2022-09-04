@@ -81,6 +81,7 @@ def missing_var(name):
         globals()[name] = -1
 
 missing_var("END_FINALLY")
+missing_var("BREAK_LOOP")
 
 # __all__ = ['decompile']
 
@@ -329,6 +330,15 @@ class Stack:
             return self._stack[-1]
         else:
             return self._stack[-count:]
+
+    def __getitem__(self, x):
+        res = Stack()
+        res._stack = self._stack[x]
+        _counts = {}
+        for val in res._stack:
+            _counts[id(val)] = _counts.get(id(val), 0) + 1
+        res._counts = _counts
+        return res
 
 
 def code_walker(code):
@@ -664,7 +674,7 @@ class Address:
     def jump(self) -> Address:
         opcode = self.opcode
         if opcode in dis.hasjrel:
-            return self[self.arg + 1]
+            return self[self.arg // (1 + IS_NOT_310) + 1]
         elif opcode in dis.hasjabs:
             return self.code.address(self.arg * (2 - IS_NOT_310))
 
@@ -1897,6 +1907,11 @@ class SuiteDecompiler:
         self.suite: Suite = Suite()
         self.assignment_chain = []
         self.popjump_stack = []
+        self.is_loop = False
+        self.convert_return_break = False
+        other_self = sys._getframe(1).f_locals.get("self")
+        if other_self and hasattr(other_self, "is_loop"):
+            self.is_loop = other_self.is_loop
 
     def IS_OP(self, addr, oparg):
         # case TARGET(IS_OP):
@@ -1988,7 +2003,7 @@ class SuiteDecompiler:
                     new_addr = addr[1]
                 addr = new_addr
             except BaseException as e:
-                traceback.print_exception(BaseException, e, None)
+                traceback.print_exception(BaseException, e, e.__traceback__)
                 addr = None
         return addr
 
@@ -2367,7 +2382,13 @@ class SuiteDecompiler:
     #
 
     def POP_TOP(self, addr):
-        self.stack.pop().on_pop(self)
+        val = self.stack.pop()
+        if (sys.version_info > (3, 7)
+                and isinstance(val, (ForStatement, WhileStatement))
+                and addr[1].opcode is JUMP_ABSOLUTE):
+                self.write("break")
+                return addr[2]
+        val.on_pop(self)
 
     calls = []
 
@@ -3030,7 +3051,7 @@ class SuiteDecompiler:
             d = SuiteDecompiler(addr[1], end_addr[-1], self.stack)
         else:
             d = SuiteDecompiler(addr[1], end_addr, self.stack)
-        
+
         d.run()
         # if end_addr.opcode is RETURN_VALUE:
         #     return end_addr[2]
@@ -3096,8 +3117,8 @@ class SuiteDecompiler:
             if end_of_loop:
                 # We are in a while-loop with nothing after the if-suite
                 jump_addr = jump_addr[-1].jump()[-1]
-            else:
-                jump_addr = addr[1]
+            #else:
+                #jump_addr = addr[1]
                 # raise Exception("unhandled")
         if self.stack._stack:
             cond = self.stack.pop()
@@ -3200,7 +3221,7 @@ class SuiteDecompiler:
             end_true = jump_addr
             if truthiness:
                 cond = PyNot(cond)
-            d_true = SuiteDecompiler(addr[1], end_true)
+            d_true = SuiteDecompiler(addr[1], end_true, self.stack[:])
             d_true.run()
             stmt = IfStatement(cond, d_true.suite, None)
             self.suite.add_statement(stmt)
@@ -3229,9 +3250,9 @@ class SuiteDecompiler:
                 and end_false[2]
                 and end_false[2].opcode is RETURN_VALUE
             ):
-                d_true = SuiteDecompiler(addr[1], jump_addr)
+                d_true = SuiteDecompiler(addr[1], jump_addr, self.stack[:])
                 d_true.run()
-                d_false = SuiteDecompiler(jump_addr, end_false[1])
+                d_false = SuiteDecompiler(jump_addr, end_false[1], self.stack[:])
                 d_false.run()
                 self.suite.add_statement(
                     IfStatement(cond, d_true.suite, d_false.suite)
@@ -3253,7 +3274,7 @@ class SuiteDecompiler:
                     if isinstance(cond, PyNot)
                     else PyNot(cond)
                 )
-                d_true = SuiteDecompiler(addr[1], end_true)
+                d_true = SuiteDecompiler(addr[1], end_true, self.stack[:])
                 d_true.run()
                 assert_pop = d_true.stack.pop()
                 assert_args = (
@@ -3268,12 +3289,36 @@ class SuiteDecompiler:
                     SimpleStatement(f'assert {assert_arg_str}')
                 )
                 return jump_addr
+        if self.is_loop:
+            # - If the true clause ends in return and we're not in
+            # another loop, break instead
+            # - If the true clause jumps forward and it's past loop
+            # boundaries, break instead
+            if self.convert_return_break and end_true.opcode is RETURN_VALUE:
+                d_true = SuiteDecompiler(addr[1], end_true, self.stack[:])
+                d_true.run()
+                d_true.suite.add_statement(SimpleStatement("break"))
+                self.suite.add_statement(
+                    IfStatement(cond, d_true.suite, Suite())
+                )
+                return jump_addr
+            elif end_true.opcode is JUMP_FORWARD:
+                end_false = end_true.jump()
+                instr = self.wrap_addr(end_false)[-1]
+                if instr.opcode is JUMP_ABSOLUTE:
+                    d_true = SuiteDecompiler(addr[1], end_true, self.stack[:])
+                    d_true.run()
+                    d_true.suite.add_statement(SimpleStatement("break"))
+                    self.suite.add_statement(
+                        IfStatement(cond, d_true.suite, Suite())
+                    )
+                    return jump_addr
         # - If the true clause ends in return, make sure it's included
         # - If the true clause ends in RAISE_VARARGS, then it's an
         # assert statement. For now I just write it as a raise within
         # an if (see below)
         if end_true.opcode in (RETURN_VALUE, RAISE_VARARGS, POP_TOP):
-            d_true = SuiteDecompiler(addr[1], jump_addr)
+            d_true = SuiteDecompiler(addr[1], jump_addr, self.stack[:])
             d_true.run()
             self.suite.add_statement(
                 IfStatement(cond, d_true.suite, Suite())
@@ -3281,7 +3326,7 @@ class SuiteDecompiler:
             return jump_addr
         if is_chained and addr[1].opcode is JUMP_ABSOLUTE:
             end_true = end_true[-2]
-        d_true = SuiteDecompiler(addr[1], end_true)
+        d_true = SuiteDecompiler(addr[1], end_true, self.stack[:])
         d_true.run()
         l = None
         if addr[1].opcode is JUMP_ABSOLUTE:
@@ -3316,6 +3361,8 @@ class SuiteDecompiler:
             elif "SETUP_LOOP" in globals() and self.wrap_addr(end_false)[-1].opcode is SETUP_LOOP:
                 # We are in a while-loop with nothing after the else-suite
                 end_false = self.wrap_addr(end_false)[-1].jump()[-1]
+            elif self.is_loop:
+                end_false = jump_addr
             if end_false.opcode is RETURN_VALUE:
                 end_false = self.wrap_addr(end_false)[1]
         elif end_true.opcode is RETURN_VALUE:
@@ -3336,11 +3383,10 @@ class SuiteDecompiler:
             # stmt = IfStatement(cond, d_true.suite, None)
             # self.suite.add_statement(stmt)
             # return jump_addr or self.END_NOW
-        d_false = SuiteDecompiler(jump_addr, end_false)
+        d_false = SuiteDecompiler(jump_addr, end_false, self.stack[:])
         d_false.run()
-        if d_true.stack and d_false.stack:
-            assert len(d_true.stack) == len(d_false.stack) == 1
-            # self.write("#ERROR: Unbalanced stacks {} != {}".format(len(d_true.stack),len(d_false.stack)))
+        stack_level = len(self.stack)
+        if len(d_true.stack) == len(d_false.stack) > stack_level:
             assert not (d_true.suite or d_false.suite)
             # this happens in specific if else conditions with assigments
             true_expr = d_true.stack.pop()
@@ -3426,8 +3472,10 @@ class SuiteDecompiler:
         if end_body.opcode is not POP_BLOCK:
             end_body = end_body[-1]
         d_body = SuiteDecompiler(addr[1], end_body)
+        d_body.is_loop = sys.version_info > (3, 7)
+        d_body.convert_return_break = not self.is_loop
         for_stmt = ForStatement(iterable)
-        d_body.stack.push(for_stmt)
+        d_body.stack.push(*self.stack._stack, for_stmt, for_stmt)
         d_body.run()
         for_stmt.body = d_body.suite
         loop = None
