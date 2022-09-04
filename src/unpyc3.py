@@ -421,7 +421,7 @@ class CodeFlags(object):
 
 
 class Code:
-    def __init__(self, code_obj, parent=None):
+    def __init__(self, code_obj, parent=None, is_comp=False):
         self.code_obj = code_obj
         self.parent = parent
         self.derefnames = [
@@ -454,6 +454,7 @@ class Code:
                 trace(' ')
         trace('================================================')
         self.flags: CodeFlags = CodeFlags(code_obj.co_flags)
+        self.is_comp = is_comp
 
     def __getitem__(self, instr_index):
         if 0 <= instr_index < len(self.instr_seq):
@@ -557,7 +558,7 @@ class Code:
         Declare name as a global.  Called by STORE_GLOBAL and
         DELETE_GLOBAL
         """
-        if name not in self.globals:
+        if not self.is_comp and name not in self.globals:
             self.globals.append(name)
 
     def ensure_global(self, name):
@@ -578,7 +579,7 @@ class Code:
         DELETE_DEREF (but only when the name denotes a free variable,
         not a cell one).
         """
-        if name not in self.nonlocals:
+        if not self.is_comp and name not in self.nonlocals:
             self.nonlocals.append(name)
 
 
@@ -740,13 +741,20 @@ class PyExpr:
     def store(self, dec, dest):
         chain = dec.assignment_chain
         chain.append(dest)
-        if self not in dec.stack:
+        if self not in dec.stack._stack:
             chain.append(self)
             dec.suite.add_statement(AssignStatement(chain))
             dec.assignment_chain = []
 
     def on_pop(self, dec: SuiteDecompiler):
-        dec.write(str(self))
+        chain = dec.assignment_chain
+        if chain:
+            chain = chain[::-1]
+            chain.append(self)
+            dec.suite.add_statement(AssignStatement(chain))
+            dec.assignment_chain = []
+        else:
+            dec.write(str(self))
 
 
 class PyConst(PyExpr):
@@ -1392,6 +1400,19 @@ class PyDictUpdate(PyBinaryOp):
         return str(self.right)
 
 
+class PyNamedExpr(PyExpr):
+    precedence = 0
+    pattern = "({} := {})"
+
+    def __init__(self, chain):
+        self.chain = chain
+
+    def __str__(self):
+        expr = self.chain[-1]
+        for x in self.chain[-2::-1]:
+            expr = self.pattern.format(x, expr)
+        return expr
+
 code_map = {
     '<lambda>': PyLambda,
     '<listcomp>': PyListComp,
@@ -1472,6 +1493,12 @@ class AssignStatement(PyStatement):
 
     def display(self, indent):
         indent.write(" = ".join(map(str, self.chain)))
+
+    def gen_display(self, seq=()):
+        expr = "{} := {}".format(*self.chain[-2:])
+        for x in self.chain[-3::-1]:
+            expr = "{} := ({})".format(x, expr)
+        return ' '.join((expr,) + seq)
 
 
 class InPlaceOp(PyStatement):
@@ -2383,7 +2410,7 @@ class SuiteDecompiler:
 
     def POP_TOP(self, addr):
         val = self.stack.pop()
-        if (sys.version_info > (3, 7)
+        if (sys.version_info > (3, 7) and not self.code.is_comp
                 and isinstance(val, (ForStatement, WhileStatement))
                 and addr[1].opcode is JUMP_ABSOLUTE):
                 self.write("break")
@@ -3122,6 +3149,12 @@ class SuiteDecompiler:
                 # raise Exception("unhandled")
         if self.stack._stack:
             cond = self.stack.pop()
+            chain = self.assignment_chain
+            if chain:
+                chain = chain[::-1]
+                chain.append(cond)
+                cond = PyNamedExpr(chain)
+                self.assignment_chain = []
         else:
             cond = not truthiness
         # chained compare
@@ -3509,9 +3542,8 @@ class SuiteDecompiler:
     def MAKE_FUNCTION_OLD(self, addr, argc, is_closure=False):
         testType = self.stack.pop().val
         if isinstance(testType, str):
-            code = Code(self.stack.pop().val, self.code)
-        else:
-            code = Code(testType, self.code)
+            testType = self.stack.pop().val
+        code = Code(testType, self.code, is_comp = testType.co_name in code_map)
         closure = self.stack.pop() if is_closure else None
         # parameter annotation objects
         paramobjs = {}
@@ -3543,9 +3575,8 @@ class SuiteDecompiler:
     def MAKE_FUNCTION_NEW(self, addr, argc, is_closure=False):
         testType = self.stack.pop().val
         if isinstance(testType, str):
-            code = Code(self.stack.pop().val, self.code)
-        else:
-            code = Code(testType, self.code)
+            testType = self.stack.pop().val
+        code = Code(testType, self.code, is_comp = testType.co_name in code_map)
         closure = self.stack.pop() if is_closure else None
         annotations = {}
         kwdefaults = {}
