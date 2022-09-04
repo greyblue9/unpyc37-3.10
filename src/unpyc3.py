@@ -741,7 +741,7 @@ class PyExpr:
     def store(self, dec, dest):
         chain = dec.assignment_chain
         chain.append(dest)
-        if self not in dec.stack._stack:
+        if self not in dec.stack:
             chain.append(self)
             dec.suite.add_statement(AssignStatement(chain))
             dec.assignment_chain = []
