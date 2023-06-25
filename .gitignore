@@ -3,3 +3,7 @@
 *.1*.mod
 *.new
 *.bak
+venv/
+core
+.*_history
+*.zip

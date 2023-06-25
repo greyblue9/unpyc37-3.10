@@ -4,11 +4,27 @@ import io
 import marshal
 import os
 import fnmatch
-import src.unpyc3 as unpyc3
 import importlib.util
 import sys
+from sys import stderr
+from pathlib import Path
+
+elem = str(Path.cwd() / "src")
+
+dirstack = []
+dirstack.append(Path.cwd())
+os.chdir(Path("src"))
+
+try:
+  sys.path.insert(0, elem)
+  import unpyc.unpyc3
+  from unpyc import unpyc3
+finally:
+  if sys.path[0] is elem:
+    sys.path.pop(0)
 
 
+ 
 def get_compiled_binary(fp):
     if sys.version_info >= (3, 4):
         return importlib.util.cache_from_source(fp)
@@ -102,3 +118,6 @@ def add_decompile_test_to_fixture(full_path, root, fixture,trace_failure=True):
     if not test_name[:len(prefix)] == prefix:
         test_name = prefix + test_name
     setattr(fixture, test_name, test)
+    
+for p in reversed(dirstack):
+  os.chdir(p)
