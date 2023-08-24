@@ -43,7 +43,7 @@ bytecode = ["bytecode"]
 
 
 [project.scripts]
-my-script = "unpyc.unpyc3"
+my-script = "unpyc.unpyc3:main"
 
 
 [setuptools.packages.find]

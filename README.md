@@ -18,6 +18,10 @@ A decompiler for Python 3.7+
 
 The original project is sadly no longer maintained.
 
+## Install
+
+    python -m pip install .
+
 ## Usage
 ### Synopsis
 `python3 -m unpyc.unpyc3 FILE.pyc [start [end]]`
