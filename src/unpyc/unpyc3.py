@@ -120,6 +120,25 @@ IS_NOT_310 = sys.version_info < (3, 10)
 import dis
 from array import array
 from opcode import opname, opmap, HAVE_ARGUMENT, cmp_op
+ops = {
+  "ROT_TWO": 2,
+  "ROT_THREE": 3,
+  "ROT_TOP": 4,
+  "ROT_TOP_TWO": 5,
+  "ROT_FOUR": 6,
+  
+  "JUMP_FORWARD": 110,
+  "JUMP_IF_FALSE_OR_POP": 111,
+  "JUMP_IF_TRUE_OR_POP": 112,
+  "JUMP_ABSOLUTE": 113,
+  "POP_JUMP_IF_FALSE": 114,
+  "POP_JUMP_IF_TRUE": 115,
+}
+for k, v in ops.items():
+  if k in globals():
+    continue
+  globals()[k] = v
+  
 import inspect
 
 import struct
@@ -2964,6 +2983,39 @@ class SuiteDecompiler:
     # and operator
 """
 
+    #  *** FIXME: THESE ARE WRONG ***
+    def PUSH_NULL(self, addr):
+        print("PUSH_NULL", file=sys.stderr)
+        self.stack.push(PyConst(None))
+        pass
+
+    def PRECALL(self, addr, i):
+        print("PRECALL", file=sys.stderr)
+        item = self.stack.pop(1)
+        self.stack.push(PyTuple([item]))
+        pass
+    
+    def GEN_OP(self, *args):
+        print("GEN_OP", file=sys.stderr)
+        items = []
+        for arg in args:
+          item = self.stack.pop(1)
+          items.append(item)
+        # self.stack.push(PyConst(None))
+        self.stack.push(PyTuple(items))
+        pass
+    # ________________________________________ #
+    
+    def make_op(name):
+      def it(self, *a, **kw):
+        print(name, file=sys.stderr)
+        return self.GEN_OP(*a, **kw)
+      return it
+    
+    CACHE = make_op("CACHE")
+    CALL = make_op("CALL")
+    
+    
     def LIST_TO_TUPLE(self, addr):
         list_value = self.stack.pop()
         values = list_value.values
