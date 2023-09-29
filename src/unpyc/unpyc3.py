@@ -488,13 +488,8 @@ class Code:
     def address(self, addr):
         if addr in self.instr_map:
             tgt_addr = self.instr_map[addr]
-            ret = self[tgt_addr]
-            return ret
-        if addr in self.instr_list:
-            tgt_addr = self.instr_list[addr]
-            ret = self[tgt_addr]
-            return ret
-        return self[addr]
+            return self[tgt_addr]
+        return self[self.instr_list[addr]] if addr in self.instr_list else self[addr]
 
     def iscellvar(self, i):
         return i < len(self.code_obj.co_cellvars)
@@ -502,8 +497,7 @@ class Code:
     def find_jumps(self):
         for addr in self:
             opcode, arg = addr
-            jt = addr.jump()
-            if jt:
+            if jt := addr.jump():
                 self.jump_targets.append(jt)
 
     def find_else(self):
@@ -754,8 +748,7 @@ class PyExpr:
             dec.assignment_chain = []
 
     def on_pop(self, dec: SuiteDecompiler):
-        chain = dec.assignment_chain
-        if chain:
+        if chain := dec.assignment_chain:
             chain = chain[::-1]
             chain.append(self)
             dec.suite.add_statement(AssignStatement(chain))
@@ -1186,8 +1179,7 @@ class FunctionDefinition:
                 else:
                     params[-i - 1] = f"{name}={arg}"
         kwparams = []
-        kwcount = code_obj.co_kwonlyargcount
-        if kwcount:
+        if kwcount := code_obj.co_kwonlyargcount:
             for i in range(kwcount):
                 name = code_obj.co_varnames[l + i]
                 if name in self.kwdefaults and name in self.paramobjs:
@@ -1704,8 +1696,7 @@ class DefStatement(
 
     def display_undecorated(self, indent):
         paramlist = ", ".join(self.getparams())
-        result = self.getreturn()
-        if result:
+        if result := self.getreturn():
             indent.write(
                 "{}def {}({}) -> {}:",
                 self.async_prefix,
@@ -2068,20 +2059,20 @@ class SuiteDecompiler:
 
     def scan_for_final_jump(self, start_addr, end_addr):
         i = 0
-        end = None
         while 1:
             cur_addr = end_addr[i]
-            if cur_addr == start_addr:
+            if (
+                cur_addr == start_addr
+                or cur_addr.opcode is not JUMP_ABSOLUTE
+                and cur_addr.opcode in else_jump_opcodes
+                or cur_addr.opcode is not JUMP_ABSOLUTE
+                and cur_addr.opcode in pop_jump_if_opcodes
+            ):
                 break
             elif cur_addr.opcode is JUMP_ABSOLUTE:
-                end = cur_addr
-                return end
-            elif cur_addr.opcode in else_jump_opcodes:
-                break
-            elif cur_addr.opcode in pop_jump_if_opcodes:
-                break
+                return cur_addr
             i = i - 1
-        return end
+        return None
 
     #
     # All opcode methods in CAPS below.
@@ -2230,11 +2221,10 @@ class SuiteDecompiler:
             j_next = j_except.jump()
             start_else = end_addr
             if j_next:
-                if j_next < start_else:
-                    if j_next < start_else and "SETUP_LOOP" in globals():
-                        j_next = j_next.seek_back(SETUP_LOOP)
-                        if j_next:
-                            j_next = j_next.jump()
+                if j_next < start_else and "SETUP_LOOP" in globals():
+                    j_next = j_next.seek_back(SETUP_LOOP)
+                    if j_next:
+                        j_next = j_next.jump()
             else:
                 return_count = 0
                 next_return = start_else
@@ -2328,8 +2318,7 @@ class SuiteDecompiler:
             return end_with[end_index - start_index]
         else:
             raise AssertionError(
-                "Unexpectee opcode at start of BEGIN_WITH:"
-                " end_with.opcode = {}".format(end_with.opcode)
+                f"Unexpectee opcode at start of BEGIN_WITH: end_with.opcode = {end_with.opcode}"
             )
 
     def POP_BLOCK(self, addr):
@@ -2612,7 +2601,7 @@ class SuiteDecompiler:
         # and is difficult to workaround
         i = 1
         while addr[i].opcode is LOAD_ATTR:
-            i = i + 1
+            i += 1
         if i > 1 and addr[i].opcode in (STORE_FAST, STORE_NAME, STORE_ATTR):
             return addr[i]
         return None
@@ -2748,10 +2737,7 @@ class SuiteDecompiler:
             self.CALL_FUNCTION(addr, argc, have_kw=True)
 
     def CALL_FUNCTION_EX(self, addr, flags):
-        kwarg_unpacks = []
-        if flags & 1:
-            kwarg_unpacks = self.stack.pop()
-
+        kwarg_unpacks = self.stack.pop() if flags & 1 else []
         kwarg_dict = PyDict()
         if isinstance(kwarg_unpacks, PyDict):
             kwarg_dict = kwarg_unpacks
@@ -2804,7 +2790,7 @@ class SuiteDecompiler:
 
     def UNPACK_SEQUENCE(self, addr, count):
         unpack = Unpack(self.stack.pop(), count)
-        for i in range(count):
+        for _ in range(count):
             self.stack.push(unpack)
 
     def UNPACK_EX(self, addr, counts):
@@ -2812,7 +2798,7 @@ class SuiteDecompiler:
         lcount = counts & 0xFF
         count = lcount + rcount + 1
         unpack = Unpack(self.stack.pop(), count, lcount)
-        for i in range(count):
+        for _ in range(count):
             self.stack.push(unpack)
 
     # Build operations
@@ -2822,7 +2808,7 @@ class SuiteDecompiler:
         self.stack.push(PySlice(self.stack.pop(argc)))
 
     def BUILD_TUPLE(self, addr, count):
-        values = [self.stack.pop() for i in range(count)]
+        values = [self.stack.pop() for _ in range(count)]
         values.reverse()
         self.stack.push(PyTuple(values))
 
@@ -2849,7 +2835,7 @@ class SuiteDecompiler:
         self.stack.push(self.stack.pop(count))
 
     def BUILD_LIST(self, addr, count):
-        values = [self.stack.pop() for i in range(count)]
+        values = [self.stack.pop() for _ in range(count)]
         values.reverse()
         self.stack.push(PyList(values))
 
@@ -2864,7 +2850,7 @@ class SuiteDecompiler:
         self.stack.push(PyList(values))
 
     def BUILD_SET(self, addr, count):
-        values = [self.stack.pop() for i in range(count)]
+        values = [self.stack.pop() for _ in range(count)]
         values.reverse()
         self.stack.push(PySet(values))
 
@@ -2881,14 +2867,14 @@ class SuiteDecompiler:
     def BUILD_MAP(self, addr, count):
         d = PyDict()
         if sys.version_info >= (3, 5):
-            for i in range(count):
+            for _ in range(count):
                 d.items.append(tuple(self.stack.pop(2)))
             d.items = list(reversed(d.items))
         self.stack.push(d)
 
     def BUILD_MAP_UNPACK(self, addr, count):
         d = PyDict()
-        for i in range(count):
+        for _ in range(count):
             o = self.stack.pop()
             if isinstance(o, PyDict):
                 for item in reversed(o.items):
@@ -2996,23 +2982,20 @@ class SuiteDecompiler:
     def PUSH_NULL(self, addr):
         print("PUSH_NULL", file=sys.stderr)
         self.stack.push(PyConst(None))
-        pass
 
     def PRECALL(self, addr, i):
         print("PRECALL", file=sys.stderr)
         item = self.stack.pop(1)
         self.stack.push(PyTuple([item]))
-        pass
     
     def GEN_OP(self, *args):
         print("GEN_OP", file=sys.stderr)
         items = []
-        for arg in args:
-          item = self.stack.pop(1)
-          items.append(item)
+        for _ in args:
+            item = self.stack.pop(1)
+            items.append(item)
         # self.stack.push(PyConst(None))
         self.stack.push(PyTuple(items))
-        pass
     # ________________________________________ #
 
     def make_op(name):
@@ -3032,16 +3015,12 @@ class SuiteDecompiler:
     def LIST_EXTEND(self, addr, i):
         items = self.stack.pop(1)
         item2 = self.stack.pop(1)
-        if hasattr(item2[0], "expr"):
-            exprs = [item2[0].expr]
-        else:
-            exprs = item2[0].values
+        exprs = [item2[0].expr] if hasattr(item2[0], "expr") else item2[0].values
         new_list = PyList([*exprs, PyStarred(items[0])])
         self.stack.push(new_list)
 
     def SET_UPDATE(self, addr, i):
         self.POP_TOP(addr)
-        pass  # self.POP_TOP(addr)
 
     def DICT_UPDATE(self, addr, i):
         items = self.stack.pop(1)
@@ -3053,10 +3032,7 @@ class SuiteDecompiler:
         item2 = self.stack.pop(1)
         new_list = [*item2[0].items] + [items[0]]
         item = None
-        if len(new_list) == 1:
-            item = new_list[0]
-        else:
-            item = PyList(new_list)
+        item = new_list[0] if len(new_list) == 1 else PyList(new_list)
         self.stack.push(item)
 
     def JUMP_IF_FALSE_OR_POP(self, addr: Address, target):
@@ -3070,7 +3046,7 @@ class SuiteDecompiler:
             opc, arg = end_addr[-1]
             if opc == JUMP_FORWARD and arg == 2:
                 end_addr = end_addr[2]
-            elif opc == RETURN_VALUE or opc == JUMP_FORWARD:
+            elif opc in [RETURN_VALUE, JUMP_FORWARD]:
                 end_addr = end_addr[-1]
                 d = SuiteDecompiler(addr[1], end_addr, self.stack)
                 d.run()
