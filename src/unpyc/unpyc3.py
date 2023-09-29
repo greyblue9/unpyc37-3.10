@@ -39,6 +39,7 @@ nspkg.__path__ = [
 sys.modules[__package__] = nspkg
 
 sys.modules[f"[__package__].{__name__}"] = __import__(__name__)
+from abc import ABC, abstractmethod
 from typing import Union, Iterable, Any, List
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
@@ -256,10 +257,14 @@ def decompile(obj) -> Union[Suite, PyStatement]:
         raise TypeError(msg)
 
 
-class Indent:
+class Indent(ABC):
     def __init__(self, indent_level=0, indent_step=4):
         self.level = indent_level
         self.step = indent_step
+
+    @abstractmethod
+    def indent(self, string):
+        pass
 
     def write(self, pattern, *args, **kwargs):
         if args or kwargs:
@@ -497,7 +502,8 @@ class Code:
     def find_jumps(self):
         for addr in self:
             opcode, arg = addr
-            if jt := addr.jump():
+            jt = addr.jump()
+            if jt:
                 self.jump_targets.append(jt)
 
     def find_else(self):
@@ -748,7 +754,8 @@ class PyExpr:
             dec.assignment_chain = []
 
     def on_pop(self, dec: SuiteDecompiler):
-        if chain := dec.assignment_chain:
+        chain = dec.assignment_chain
+        if chain:
             chain = chain[::-1]
             chain.append(self)
             dec.suite.add_statement(AssignStatement(chain))
@@ -1179,7 +1186,8 @@ class FunctionDefinition:
                 else:
                     params[-i - 1] = f"{name}={arg}"
         kwparams = []
-        if kwcount := code_obj.co_kwonlyargcount:
+        kwcount = code_obj.co_kwonlyargcount
+        if kwcount:
             for i in range(kwcount):
                 name = code_obj.co_varnames[l + i]
                 if name in self.kwdefaults and name in self.paramobjs:
@@ -1696,7 +1704,8 @@ class DefStatement(
 
     def display_undecorated(self, indent):
         paramlist = ", ".join(self.getparams())
-        if result := self.getreturn():
+        result = self.getreturn()
+        if result:
             indent.write(
                 "{}def {}({}) -> {}:",
                 self.async_prefix,
@@ -3005,17 +3014,16 @@ class SuiteDecompiler:
         self.stack.push(PyTuple(items))
         pass
     # ________________________________________ #
-    
+
     def make_op(name):
-      def it(self, *a, **kw):
-        print(name, file=sys.stderr)
-        return self.GEN_OP(*a, **kw)
-      return it
-    
+        def it(self, *a, **kw):
+            print(name, file=sys.stderr)
+            return self.GEN_OP(*a, **kw)
+        return it
+
     CACHE = make_op("CACHE")
     CALL = make_op("CALL")
-    
-    
+
     def LIST_TO_TUPLE(self, addr):
         list_value = self.stack.pop()
         values = list_value.values
@@ -3656,7 +3664,7 @@ class SuiteDecompiler:
             from_exc, exc = self.stack.pop(), self.stack.pop()
             self.write("raise {} from {}".format(exc, from_exc))
         else:
-            raise Unknown
+            raise Exception(f"#ERROR: Unexpected argc: {argc} | {addr}\n")
 
     def EXTENDED_ARG(self, addr, ext):
         # self.write("# ERROR: {} : {}".format(addr, ext) )

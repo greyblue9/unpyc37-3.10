@@ -1,5 +1,5 @@
+attrdict
 pytest
 pytest-env
 python-dotenv
 six
-
