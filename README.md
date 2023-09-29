@@ -33,13 +33,13 @@ The original project is sadly no longer maintained.
 
 ### Examples
 To decompile a whole file:
-`python3.8 -m unpyc.unpyc3 file.pyc`
+`python3.7 -m unpyc.unpyc3 file.pyc`
 
 To decompile instructions 0-60:
-`python3.8 -m unpyc.unpyc3 file.pyc 0 60`
+`python3.7 -m unpyc.unpyc3 file.pyc 0 60`
 
 To decompile instructions 61 to end:
-`python3.8 -m unpyc.unpyc3 file.pyc 61`
+`python3.7 -m unpyc.unpyc3 file.pyc 61`
 
 ### Background
 The aim is to be able to recreate Python3 source code 

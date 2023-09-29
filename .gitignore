@@ -3,6 +3,7 @@
 *.1*.mod
 *.new
 *.bak
+.idea/
 venv/
 core
 .*_history
